@@ -98,6 +98,7 @@ class Ears:
         self.buffer = np.zeros(0, dtype=np.float32)
         self.robot.media.start_recording()
         stage.recording = True
+        stage.ears = self            # the current listener; older ones must not touch the mic
 
     def _flush(self):
         while self.robot.media.get_audio_sample() is not None:
@@ -158,6 +159,14 @@ class Ears:
         return (response.json().get("text") or "").strip()
 
     def close(self):
-        # The microphone stays on: playback shares its pipeline, and a newer
-        # Ears may already be listening after a settings change
+        """Turn the microphone off, unless a newer listener has taken over already."""
+        if getattr(self.client, "close", None):
+            self.client.close()
+        if getattr(self.stage, "ears", None) is not self:
+            return
         self.stage.recording = False
+        self.stage.ears = None
+        try:
+            self.robot.media.stop_recording()
+        except Exception as e:
+            log.warning("Could not stop the microphone: %s", e)

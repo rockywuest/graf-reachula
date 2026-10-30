@@ -108,3 +108,4 @@ class Talk:
             except Exception:
                 log.exception("Talking hiccup")
                 time.sleep(1)
+        self.ears.close()

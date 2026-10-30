@@ -149,3 +149,20 @@ def test_xai_transcription_posts_multipart_with_keyterms(monkeypatch):
     assert b'name="language"' in body and b'name="keyterm"' in body and b"Reachula" in body
     # xAI requires the file to be the last multipart field
     assert body.rfind(b'name="file"') > body.rfind(b'name="keyterm"')
+
+
+def test_close_stops_mic_only_for_the_current_listener():
+    robot = SimpleNamespace(media=MagicMock())
+    stage = SimpleNamespace(recording=True, ears=None)
+    old, new = Ears.__new__(Ears), Ears.__new__(Ears)
+    for e in (old, new):
+        e.robot, e.stage, e.client = robot, stage, MagicMock()
+    stage.ears = new
+
+    old.close()   # a superseded listener leaves the mic to the new one
+    assert stage.recording and stage.ears is new
+    robot.media.stop_recording.assert_not_called()
+
+    new.close()   # talking switched off: the mic goes off
+    assert not stage.recording and stage.ears is None
+    robot.media.stop_recording.assert_called_once()

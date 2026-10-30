@@ -40,6 +40,7 @@ class Stage:
         self.speaking = False           # audio is playing: the ears must not listen
         self.quiet_from = 0.0           # the room still echoes until this time
         self.recording = False          # the ears are using the microphone
+        self.ears = None                # the Ears that currently own the microphone
         self.last_performance = time.time()
         self.sounds = sounds.build_library()
         self.moves: dict = {}
