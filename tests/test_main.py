@@ -90,17 +90,28 @@ def test_writes_without_the_page_header_are_refused(running_app):
 
 
 def test_pin_locks_sensitive_settings(running_app):
-    assert running_app.post("/api/settings", json={"changes": {"new_pin": "4711"}}).status_code == 200
+    assert running_app.post("/api/settings", json={"changes": {"new_pin": "4711"}}).status_code == 400
+    assert running_app.post("/api/settings", json={"changes": {"new_pin": "471100"}}).status_code == 200
     data = running_app.get("/api/settings").json()
     assert data["pin_set"] is True
     locked = running_app.post("/api/settings", json={"changes": {"stt_provider": "elevenlabs"}})
     assert locked.status_code == 403
     assert running_app.post("/api/settings", json={"changes": {"language": "de"}}).status_code == 200
     ok = running_app.post("/api/settings", json={"changes": {"stt_provider": "elevenlabs"}},
-                          headers={"x-graf-pin": "4711"})
+                          headers={"x-graf-pin": "471100"})
     assert ok.status_code == 200 and ok.json()["stt_provider"] == "elevenlabs"
     wrong = running_app.post("/api/settings", json={"changes": {"new_pin": "0000"}}, headers={"x-graf-pin": "1"})
     assert wrong.status_code == 403
+
+
+def test_wrong_pins_lock_out_guessing(running_app):
+    running_app.post("/api/settings", json={"changes": {"new_pin": "secret1"}})
+    codes = [running_app.post("/api/settings", json={"changes": {"llm_model": "x"}},
+                              headers={"x-graf-pin": f"guess{i}"}).status_code for i in range(7)]
+    assert codes[:5] == [403] * 5 and codes[-1] == 429
+    # Even the right PIN waits out the lockout
+    right = running_app.post("/api/settings", json={"changes": {"llm_model": "x"}}, headers={"x-graf-pin": "secret1"})
+    assert right.status_code == 429
 
 
 def test_play_queue_is_capped(running_app):

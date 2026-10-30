@@ -193,6 +193,9 @@ class Settings:
         attempt = hashlib.pbkdf2_hmac("sha256", pin.encode(), salt.encode(), 100_000).hex()
         return hmac.compare_digest(attempt, digest)
 
+    def reset_pin(self):
+        self.admin_pin_hash = ""
+
     def update(self, changes: dict, from_file: bool = False):
         known = {f.name: f for f in fields(self)}
         if not from_file:
@@ -228,3 +231,17 @@ class Settings:
             if name == "tts_provider" and value not in TTS_PROVIDERS:
                 continue
             setattr(self, name, value)
+
+
+if __name__ == "__main__":
+    # Forgot the PIN (or a guest set one first)? On the robot:
+    #   /venvs/apps_venv/bin/python -m graf_reachula.settings --reset-pin
+    import sys
+
+    if "--reset-pin" in sys.argv:
+        settings = Settings.load()
+        settings.reset_pin()
+        settings.save()
+        print("Settings PIN removed. Set a new one on the app's page.")
+    else:
+        print("Usage: python -m graf_reachula.settings --reset-pin")

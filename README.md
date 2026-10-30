@@ -128,8 +128,11 @@ Models without vision work too; the Count then just can't see.
 
 ### Before the party: set a settings PIN
 
-Guests on your Wi-Fi can open the app's page too. Under **Settings PIN**, set a PIN: from then on, providers,
-keys and the voice can only be changed with it (sounds, moves and the language stay open, so guests can play).
+Guests on your Wi-Fi can open the app's page too. Under **Settings PIN**, set a PIN (at least 6 characters) right
+after installing: from then on, providers, keys and the voice can only be changed with it (sounds, moves and the
+language stay open, so guests can play). Wrong guesses lock the settings for a while. Forgot the PIN? Over SSH on
+the robot: `/venvs/apps_venv/bin/python -m graf_reachula.settings --reset-pin`. The page uses plain HTTP, so only
+enter the PIN on a network you trust.
 Saved keys are never shown on the page again, keys only ever go to their provider's official address, and a
 stored key is dropped whenever the provider changes.
 
@@ -197,8 +200,8 @@ nach dem Speichern zeigt die Seite nur die letzten vier Zeichen.
 
 Auf einer lauten Party antwortet der Graf nur, wenn man ihn ruft („Reachy“, „Graf“, „Count“). Auch Wörter wie
 „reach“ oder „count“ können ihn wecken. 
-**Vor der Party eine PIN setzen:** Gäste im WLAN können die App-Seite auch öffnen. Unter **Settings PIN** eine PIN
-festlegen; danach lassen sich Anbieter, Schlüssel und Stimme nur noch mit PIN ändern. Gespeicherte Schlüssel zeigt die
+**Vor der Party eine PIN setzen:** Gäste im WLAN können die App-Seite auch öffnen. Gleich nach der Installation unter
+**Settings PIN** eine PIN mit mindestens 6 Zeichen festlegen; danach lassen sich Anbieter, Schlüssel und Stimme nur noch mit PIN ändern. Gespeicherte Schlüssel zeigt die
 Seite nie wieder an, und sie gehen nur an die offizielle Adresse ihres Anbieters.
 
 **Tipp:** Neben die Süßigkeitenschale stellen, auf einen Tisch, außer Reichweite kleiner Hände. Für Kleinkinder das

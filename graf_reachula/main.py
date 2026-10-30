@@ -28,6 +28,8 @@ SENSITIVE = {"talk", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
              "stt_provider", "stt_model", "stt_api_key", "stt_base_url",
              "tts_provider", "elevenlabs_api_key", "elevenlabs_voice", "elevenlabs_model", "new_pin"}
 MAX_QUEUE = 5
+MIN_PIN_LENGTH = 6
+PIN_FREE_TRIES = 5        # then a growing lockout against guessing
 TALK_RELATED = {"talk", "language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
                 "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "elevenlabs_api_key"}
 
@@ -66,6 +68,7 @@ class GrafReachula(ReachyMiniApp):
         status = {"talking": False, "talk_error": ""}
         talk_lock = threading.Lock()
         current = {"talk": None}
+        pin_guard = {"failures": 0, "locked_until": 0.0}
         requests: list[tuple[str, str]] = []   # effects requested from the web page
 
         def restart_talking():
@@ -117,10 +120,20 @@ class GrafReachula(ReachyMiniApp):
         def update_settings(update: SettingsUpdate, request: Request):
             check_write(request)
             sensitive = SENSITIVE & set(update.changes)
-            if sensitive and not settings.check_pin(request.headers.get("x-graf-pin")):
-                raise HTTPException(status_code=403, detail="Settings PIN required for: " + ", ".join(sorted(sensitive)))
+            if sensitive:
+                if time.time() < pin_guard["locked_until"]:
+                    wait = int(pin_guard["locked_until"] - time.time()) + 1
+                    raise HTTPException(status_code=429, detail=f"Too many wrong PINs, try again in {wait} s")
+                if not settings.check_pin(request.headers.get("x-graf-pin")):
+                    pin_guard["failures"] += 1
+                    if pin_guard["failures"] >= PIN_FREE_TRIES:
+                        pin_guard["locked_until"] = time.time() + 30 * 2 ** (pin_guard["failures"] - PIN_FREE_TRIES)
+                    raise HTTPException(status_code=403, detail="Settings PIN required for: " + ", ".join(sorted(sensitive)))
+                pin_guard["failures"] = 0
             new_pin = update.changes.pop("new_pin", None)
             if isinstance(new_pin, str) and new_pin.strip():
+                if len(new_pin.strip()) < MIN_PIN_LENGTH:
+                    raise HTTPException(status_code=400, detail=f"The PIN needs at least {MIN_PIN_LENGTH} characters")
                 settings.set_pin(new_pin.strip())
             before = settings.public()
             settings.update(update.changes)
