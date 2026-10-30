@@ -71,16 +71,28 @@ class EnergyVAD:
         return None
 
 
+# Names the speech recognition should expect (xAI supports such hints)
+KEYTERMS = ("Reachy", "Reachula", "Count", "Graf")
+
+
 class Ears:
     def __init__(self, robot, stage, stt: dict, language: str):
-        import openai
-
         self.robot = robot
         self.stage = stage
         self.language = language
+        self.provider = stt["provider"]
         self.model = stt["model"]
-        self.client = openai.OpenAI(api_key=stt["api_key"], base_url=stt["base_url"] or None,
-                                    timeout=30.0, max_retries=1)
+        self.api_key = stt["api_key"]
+        self.base_url = (stt["base_url"] or "").rstrip("/")
+        if self.provider == "xai":
+            import httpx
+
+            self.client = httpx.Client(timeout=30.0)
+        else:
+            import openai
+
+            self.client = openai.OpenAI(api_key=stt["api_key"], base_url=stt["base_url"] or None,
+                                        timeout=30.0, max_retries=1)
         self.rate = robot.media.get_input_audio_samplerate() or 16000
         self.vad = EnergyVAD(self.rate)
         self.buffer = np.zeros(0, dtype=np.float32)
@@ -118,16 +130,32 @@ class Ears:
     def transcribe(self, audio: np.ndarray) -> str:
         wav = io.BytesIO()
         sf.write(wav, audio, self.rate, format="WAV", subtype="PCM_16")
-        result = self.client.audio.transcriptions.create(
-            model=self.model,
-            file=("speech.wav", wav.getvalue(), "audio/wav"),
-            language=self.language,
-        )
-        text = (result.text or "").strip()
+        if self.provider == "xai":
+            text = self._transcribe_xai(wav.getvalue())
+        else:
+            result = self.client.audio.transcriptions.create(
+                model=self.model,
+                file=("speech.wav", wav.getvalue(), "audio/wav"),
+                language=self.language,
+            )
+            text = (result.text or "").strip()
         if PHANTOMS.match(text):
             log.info("Ignored phantom transcript: %r", text)
             return ""
         return text
+
+    def _transcribe_xai(self, wav: bytes) -> str:
+        """xAI's batch speech-to-text (POST /v1/stt, multipart, file last)."""
+        # httpx sends form fields before files, as xAI requires (file must be last)
+        data = {"language": self.language, "keyterm": list(KEYTERMS)}
+        response = self.client.post(
+            f"{self.base_url}/stt",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            data=data,
+            files={"file": ("speech.wav", wav, "audio/wav")},
+        )
+        response.raise_for_status()
+        return (response.json().get("text") or "").strip()
 
     def close(self):
         # The microphone stays on: playback shares its pipeline, and a newer

@@ -49,6 +49,8 @@ hands, because his head moves. For toddlers, switch scares off on the app page.
 ## Make him talk (optional): bring your own AI
 
 The Count needs two things to talk: a **chat model that can see** (for the camera) and **speech-to-text**.
+**One xAI key covers both**: in our tests the Count heard a question in 0.4 s and answered with a look at
+the camera in about 1 s.
 Enter the keys on the app's page; they are stored only on your robot (`~/.config/graf_reachula/settings.json`,
 readable only by its owner). You can also set them as environment variables.
 
@@ -57,6 +59,7 @@ readable only by its owner). You can also set them as environment variables.
 | Anthropic (Claude) | `claude-opus-5-5` | `ANTHROPIC_API_KEY` |
 | OpenAI | `gpt-5.6-terra` | `OPENAI_API_KEY` |
 | Google Gemini | `gemini-3.5-flash-lite` | `GEMINI_API_KEY` |
+| xAI (Grok) — fastest in our tests | `grok-4.20-0309-non-reasoning` | `XAI_API_KEY` |
 | OpenRouter | `anthropic/claude-opus-5.5` | `OPENROUTER_API_KEY` |
 | Mistral | `mistral-medium-latest` | `MISTRAL_API_KEY` |
 | Groq | `qwen/qwen3.8-27b` | `GROQ_API_KEY` |
@@ -65,6 +68,7 @@ readable only by its owner). You can also set them as environment variables.
 
 | Speech-to-text | Default model | Key variable |
 |---|---|---|
+| xAI (Grok) — knows the Count's names | — | `XAI_API_KEY` |
 | OpenAI | `gpt-4o-mini-transcribe` | `OPENAI_API_KEY` |
 | Groq (fast, generous free tier) | `whisper-large-v3-turbo` | `GROQ_API_KEY` |
 | Custom (OpenAI-compatible `/audio/transcriptions`) | your choice | — |
@@ -116,9 +120,9 @@ und starten. Auf der App-Seite (`http://reachy-mini.local:8042`) die Sprache auf
 Geräusche und Bewegungen testen und optional Schlüssel eintragen.
 
 **Ohne Schlüssel:** Erschrecken, Gruselgeräusche, Gruselbewegungen, Begrüßung mit Vampirstimme.
-**Mit Schlüssel:** Der Graf spricht. Er braucht ein Chat-Modell mit Bildverständnis (Claude, OpenAI, Gemini,
-OpenRouter, Mistral, Groq, Ollama oder jede OpenAI-kompatible Schnittstelle) und eine Spracherkennung
-(OpenAI, Groq oder kompatibel). Die Schlüssel bleiben auf dem Roboter.
+**Mit Schlüssel:** Der Graf spricht. Er braucht ein Chat-Modell mit Bildverständnis (Claude, OpenAI, xAI/Grok,
+Gemini, OpenRouter, Mistral, Groq, Ollama oder jede OpenAI-kompatible Schnittstelle) und eine Spracherkennung
+(xAI, OpenAI, Groq oder kompatibel). Ein einziger xAI-Schlüssel reicht für beides. Die Schlüssel bleiben auf dem Roboter.
 
 Auf einer lauten Party antwortet der Graf nur, wenn man ihn ruft („Reachy“, „Graf“, „Count“). Auch Wörter wie
 „reach“ oder „count“ können ihn wecken. Die Einstellungsseite hat kein Passwort: nur in vertrauenswürdigen Netzen nutzen.

@@ -201,3 +201,12 @@ def test_unchanged_provider_keeps_key_when_masked_key_sent_back():
 def test_public_does_not_reveal_short_keys():
     data = Settings(llm_api_key="abc").public()
     assert "abc" not in data["llm_api_key"]
+
+
+def test_xai_key_covers_chat_and_speech(monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "xai-env")
+    s = Settings(llm_provider="xai", stt_provider="xai")
+    assert s.llm()["base_url"] == "https://api.x.ai/v1"
+    assert s.llm()["api_key"] == "xai-env"
+    assert s.stt()["api_key"] == "xai-env"
+    assert s.can_talk()

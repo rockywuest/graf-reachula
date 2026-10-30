@@ -97,6 +97,7 @@ def test_real_sentences_are_not_phantoms(text):
 def make_ears(text_result):
     e = Ears.__new__(Ears)
     e.model = "stt-model"
+    e.provider = "openai"
     e.language = "en"
     e.rate = RATE
     e.client = MagicMock()
@@ -121,3 +122,30 @@ def test_transcribe_drops_phantoms():
 
 def test_transcribe_handles_empty_result():
     assert make_ears(None).transcribe(np.zeros(RATE, dtype=np.float32)) == ""
+
+
+def test_xai_transcription_posts_multipart_with_keyterms(monkeypatch):
+    """xAI has its own /v1/stt endpoint instead of /audio/transcriptions."""
+    import httpx
+
+    sent = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent["url"] = str(request.url)
+        sent["auth"] = request.headers["authorization"]
+        sent["body"] = request.content
+        return httpx.Response(200, json={"text": " Hello Count Reachula ", "language": "en"})
+
+    e = Ears.__new__(Ears)
+    e.provider, e.api_key, e.base_url, e.language, e.rate = "xai", "xai-test", "https://api.x.ai/v1", "en", 16000
+    e.client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    text = e.transcribe(np.zeros(16000, dtype=np.float32) + 0.1)
+
+    assert text == "Hello Count Reachula"
+    assert sent["url"] == "https://api.x.ai/v1/stt"
+    assert sent["auth"] == "Bearer xai-test"
+    body = sent["body"]
+    assert b'name="language"' in body and b'name="keyterm"' in body and b"Reachula" in body
+    # xAI requires the file to be the last multipart field
+    assert body.rfind(b'name="file"') > body.rfind(b'name="keyterm"')

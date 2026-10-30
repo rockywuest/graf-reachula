@@ -19,6 +19,7 @@ LLM_PROVIDERS = {
                "official": ("https://api.openai.com/v1",)},
     "gemini": {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
                "model": "gemini-3.5-flash-lite", "env": "GEMINI_API_KEY"},
+    "xai": {"base_url": "https://api.x.ai/v1", "model": "grok-4.20-0309-non-reasoning", "env": "XAI_API_KEY"},
     "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": "anthropic/claude-opus-5.5",
                    "env": "OPENROUTER_API_KEY"},
     "mistral": {"base_url": "https://api.mistral.ai/v1", "model": "mistral-medium-latest",
@@ -29,8 +30,9 @@ LLM_PROVIDERS = {
     "custom": {"base_url": "", "model": "", "env": None},
 }
 
-# Speech-to-text providers (OpenAI-compatible /audio/transcriptions)
+# Speech-to-text providers: OpenAI-compatible /audio/transcriptions, plus xAI's own /stt
 STT_PROVIDERS = {
+    "xai": {"base_url": "https://api.x.ai/v1", "model": "", "env": "XAI_API_KEY"},
     "openai": {"base_url": None, "model": "gpt-4o-mini-transcribe", "env": "OPENAI_API_KEY",
                "official": ("https://api.openai.com/v1",)},
     "groq": {"base_url": "https://api.groq.com/openai/v1", "model": "whisper-large-v3-turbo",
