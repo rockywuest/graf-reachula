@@ -1,9 +1,11 @@
 """Count Reachula (Graf Reachula): a spooky, child-friendly Halloween ghost for Reachy Mini."""
 
 import logging
+import re
 import threading
 import time
 
+from fastapi import HTTPException, Request
 from pydantic import BaseModel
 from reachy_mini import ReachyMini, ReachyMiniApp
 
@@ -13,6 +15,16 @@ from graf_reachula.stage import Stage
 from graf_reachula.voice import Voice
 
 log = logging.getLogger("graf_reachula")
+
+# The settings page holds API keys. Only answer requests addressed to the robot
+# itself (IP, local name, mDNS) so a web page on another domain can't reach it
+# through DNS rebinding.
+LOCAL_HOST = re.compile(r"^(localhost|\d{1,3}(\.\d{1,3}){3}|\[[0-9a-f:]+\]|[\w-]+(\.local)?)(:\d+)?$", re.IGNORECASE)
+
+
+def check_host(request: Request):
+    if not LOCAL_HOST.match(request.headers.get("host", "")):
+        raise HTTPException(status_code=403, detail="Open this page via the robot's address")
 
 
 class SettingsUpdate(BaseModel):
@@ -60,11 +72,13 @@ class GrafReachula(ReachyMiniApp):
         # --- web page routes (the server starts before run(); the page retries) ---
 
         @self.settings_app.get("/api/settings")
-        def get_settings():
+        def get_settings(request: Request):
+            check_host(request)
             return {**settings.public(), **status}
 
         @self.settings_app.post("/api/settings")
-        def update_settings(update: SettingsUpdate):
+        def update_settings(update: SettingsUpdate, request: Request):
+            check_host(request)
             talk_related = {"talk", "language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
                             "stt_provider", "stt_model", "stt_api_key", "stt_base_url"}
             settings.update(update.changes)
@@ -75,7 +89,8 @@ class GrafReachula(ReachyMiniApp):
             return {**settings.public(), **status}
 
         @self.settings_app.post("/api/play/{kind}/{name}")
-        def play(kind: str, name: str):
+        def play(kind: str, name: str, request: Request):
+            check_host(request)
             requests.append((kind, name))
             return {"queued": f"{kind}:{name}"}
 

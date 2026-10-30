@@ -56,20 +56,30 @@ class Settings:
 
     # -- resolved values --------------------------------------------------
 
+    @staticmethod
+    def _env_key(preset: dict, base_url: str) -> str:
+        # Keys from the environment only ever go to the provider's own endpoint,
+        # never to a base URL someone typed into the settings page
+        if not preset["env"] or (base_url and base_url != preset["base_url"]):
+            return ""
+        return os.getenv(preset["env"], "")
+
     def llm(self) -> dict:
         preset = LLM_PROVIDERS.get(self.llm_provider, LLM_PROVIDERS["custom"])
         return {
             "provider": self.llm_provider,
             "model": self.llm_model or preset["model"],
             "base_url": self.llm_base_url or preset["base_url"],
-            "api_key": self.llm_api_key or (os.getenv(preset["env"], "") if preset["env"] else "")
+            "api_key": self.llm_api_key or self._env_key(preset, self.llm_base_url)
                        or ("ollama" if self.llm_provider == "ollama" else ""),
         }
 
     def stt(self) -> dict:
         preset = STT_PROVIDERS.get(self.stt_provider, STT_PROVIDERS["custom"])
-        key = self.stt_api_key or (os.getenv(preset["env"], "") if preset["env"] else "")
-        if not key and self.stt_provider == self.llm_provider:
+        key = self.stt_api_key or self._env_key(preset, self.stt_base_url)
+        same_endpoint = (self.stt_provider == self.llm_provider
+                         and (self.stt_base_url or preset["base_url"]) == self.llm()["base_url"])
+        if not key and same_endpoint:
             key = self.llm()["api_key"]
         return {
             "provider": self.stt_provider,
@@ -112,10 +122,24 @@ class Settings:
 
     def update(self, changes: dict):
         known = {f.name: f for f in fields(self)}
+        for side in ("llm", "stt"):
+            # A key must never follow a request to a new endpoint: when the provider
+            # or base URL changes and no new key comes along, the stored key is dropped
+            key = changes.get(f"{side}_api_key", "")
+            new_key = isinstance(key, str) and key and not key.startswith("••••")
+            moved = any(name in changes and changes[name] != getattr(self, name)
+                        for name in (f"{side}_provider", f"{side}_base_url"))
+            if moved and not new_key:
+                setattr(self, f"{side}_api_key", "")
         for name, value in changes.items():
             if name not in known:
                 continue
             # The page sends masked keys back unchanged; keep the stored one
             if name.endswith("_api_key") and isinstance(value, str) and value.startswith("••••"):
+                continue
+            default = getattr(type(self), name, None)
+            if isinstance(default, bool):
+                value = value if isinstance(value, bool) else str(value).lower() in ("1", "true", "on", "yes")
+            elif not isinstance(value, str):
                 continue
             setattr(self, name, value)
