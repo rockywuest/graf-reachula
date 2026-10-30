@@ -84,11 +84,11 @@ class GrafReachula(ReachyMiniApp):
 
         # --- web page routes (the server starts before run(); the page retries) ---
 
-        @self.settings_app.get("/api/settings")
         def live_status() -> dict:
             talk = current["talk"]
             return {**status, "voice_status": voice.status, "listen_error": talk.last_error if talk else ""}
 
+        @self.settings_app.get("/api/settings")
         def get_settings(request: Request):
             check_host(request)
             return {**settings.public(), **live_status()}
