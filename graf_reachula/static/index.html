@@ -44,8 +44,10 @@
                 for the reset command.</p>
             <p id="pin-state" class="status-line"></p>
             <div id="setup" hidden>
-                <p class="hint">The first PIN needs the setup code, so a guest can't set one before you do. It is on the
-                    robot only: over SSH, <code>cat ~/.config/graf_reachula/setup-code.txt</code> (see the README).</p>
+                <p class="hint">The first PIN needs the setup code, so a guest can't set one before you do. The Count
+                    says it when he starts (only while no PIN is set; missed it? restart the app). Or over SSH:
+                    <code>cat ~/.config/graf_reachula/setup-code.txt</code>. On a Reachy Mini Lite, open this page on
+                    the computer the app runs on (<code>http://localhost:8042</code>): no code needed there.</p>
                 <label>Setup code <input id="setup_code" inputmode="numeric" autocomplete="off" placeholder="6 digits"></label>
             </div>
             <label>Your PIN <input id="pin" type="password" autocomplete="current-password" placeholder="needed for locked changes"></label>

@@ -36,6 +36,13 @@ MAX_QUEUE = 5
 MIN_PIN_LENGTH = 6
 PIN_FREE_TRIES = 5        # then a growing lockout against guessing
 MAX_LOCKOUT = 300         # seconds; the owner must never be locked out for long
+MAX_TRACKED_DEVICES = 256
+# Backstop against a guest who keeps changing address: many wrong guesses from
+# anywhere briefly lock the PIN-protected settings for everyone (switching talking
+# off still works)
+GLOBAL_FAILURES, GLOBAL_WINDOW, GLOBAL_LOCKOUT = 20, 600, 60
+FORWARD_HEADERS = ("forwarded", "x-forwarded-for", "x-real-ip", "via")
+LOOPBACK = {"127.0.0.1", "::1"}
 PIN_CHARS = re.compile(r"^[\x21-\x7e]+$")   # printable ASCII: it travels in an HTTP header
 TALK_RELATED = {"talk", "language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
                 "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "elevenlabs_api_key"}
@@ -95,10 +102,15 @@ class GrafReachula(ReachyMiniApp):
         status = {"talking": False, "talk_error": ""}
         talk_lock = threading.Lock()
         current = {"talk": None}
-        pin_guard = {"failures": 0, "locked_until": 0.0}
+        # Wrong guesses lock out the device that made them, not everyone: a guest
+        # can't keep the owner out of the settings
+        pin_guard: dict[str, dict] = {}
+        recent_failures: list[float] = []
+        global_lock = {"until": 0.0}
         pin_lock = threading.Lock()            # one PIN check at a time: no parallel guessing
-        # Proves the first PIN is set by the robot's owner: only readable on the robot itself
-        # (never logged, never spoken: the log and the room are open to guests)
+        # Proves the first PIN is set by the robot's owner: in an owner-only file on the robot,
+        # and announced once at start while no PIN exists (never logged: the log is open to the
+        # network). On the app's own computer no code is needed, see on_this_computer().
         setup = {"code": new_setup_code()}
         self.setup = setup
         requests: list[tuple[str, str]] = []   # effects requested from the web page
@@ -146,15 +158,33 @@ class GrafReachula(ReachyMiniApp):
         @self.settings_app.get("/api/settings")
         def get_settings(request: Request):
             check_host(request)
-            settings.reload_pin()
+            with pin_lock:
+                settings.reload_pin()
             return {**settings.public(), **live_status()}
 
-        def wrong_guess(detail: str):
-            pin_guard["failures"] += 1
-            if pin_guard["failures"] >= PIN_FREE_TRIES:
-                lockout = min(MAX_LOCKOUT, 30 * 2 ** (pin_guard["failures"] - PIN_FREE_TRIES))
-                pin_guard["locked_until"] = time.time() + lockout
+        def device(request: Request) -> str:
+            return request.client.host if request.client else "?"
+
+        def wrong_guess(request: Request, detail: str):
+            guard = pin_guard.setdefault(device(request), {"failures": 0, "locked_until": 0.0})
+            guard["failures"] += 1
+            now = time.time()
+            recent_failures[:] = [t for t in recent_failures if now - t < GLOBAL_WINDOW] + [now]
+            if len(recent_failures) >= GLOBAL_FAILURES:
+                global_lock["until"] = now + GLOBAL_LOCKOUT
+            if guard["failures"] >= PIN_FREE_TRIES:
+                lockout = min(MAX_LOCKOUT, 30 * 2 ** (guard["failures"] - PIN_FREE_TRIES))
+                guard["locked_until"] = time.time() + lockout
+            while len(pin_guard) > MAX_TRACKED_DEVICES:
+                pin_guard.pop(next(iter(pin_guard)))
             raise HTTPException(status_code=403, detail=detail)
+
+        def on_this_computer(request: Request) -> bool:
+            """The page opened on the machine the app runs on (a Reachy Mini Lite's computer)."""
+            host = request.headers.get("host", "").rsplit(":", 1)[0].strip("[]")
+            # A proxy or tunnel on the same machine would make network clients look local
+            proxied = any(name in request.headers for name in FORWARD_HEADERS)
+            return device(request) in LOOPBACK and host in ("localhost", "127.0.0.1", "::1") and not proxied
 
         def check_pin_rules(changes: dict, request: Request):
             """Raises unless this request may make these changes. Call with pin_lock held."""
@@ -163,17 +193,21 @@ class GrafReachula(ReachyMiniApp):
                 sensitive.discard("talk")      # anyone may silence the Count, e.g. during a lockout
             if not sensitive:
                 return
-            if time.time() < pin_guard["locked_until"]:
-                wait = int(pin_guard["locked_until"] - time.time()) + 1
+            guard = pin_guard.get(device(request))
+            until = max(guard["locked_until"] if guard else 0.0, global_lock["until"])
+            if time.time() < until:
+                wait = int(until - time.time()) + 1
                 raise HTTPException(status_code=429, detail=f"Too many wrong guesses, try again in {wait} s")
             if settings.admin_pin_hash:
                 if not settings.check_pin(request.headers.get("x-graf-pin")):
-                    wrong_guess("Settings PIN required for: " + ", ".join(sorted(sensitive)))
+                    wrong_guess(request, "Settings PIN required for: " + ", ".join(sorted(sensitive)))
             elif sensitive != {"new_pin"}:
                 raise HTTPException(status_code=403, detail="Set a settings PIN first (section 🔒 Settings PIN)")
+            elif on_this_computer(request):
+                pass        # whoever sits at the app's own computer is its owner
             elif not hmac.compare_digest(request.headers.get("x-graf-setup", "").strip().encode(), setup["code"].encode()):
-                wrong_guess("Enter the setup code from setup-code.txt on the robot (see the README)")
-            pin_guard["failures"] = 0
+                wrong_guess(request, "Enter the setup code from setup-code.txt on the robot (see the README)")
+            pin_guard.pop(device(request), None)
 
         @self.settings_app.post("/api/settings")
         def update_settings(update: SettingsUpdate, request: Request):
@@ -219,6 +253,12 @@ class GrafReachula(ReachyMiniApp):
             voice(line)
             if stop_event.is_set():
                 return
+        with pin_lock:
+            settings.reload_pin()
+            code = None if settings.admin_pin_hash else setup["code"]
+        if code:
+            # Only at the very first start(s): whoever installed the robot is standing next to it
+            voice(voice.texts["setup_code"].format(code=", ".join(code)))
         stage.play_sound("laugh")
 
         threading.Thread(target=voice.warm_up, args=(voice.texts["after_scare"],), daemon=True).start()

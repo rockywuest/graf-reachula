@@ -30,7 +30,7 @@ class FakeVoice:
 
     def __init__(self, stage, settings):
         self.stage, self.settings, self.status, self.spoken = stage, settings, "Free Edge voice", []
-        self.texts = {"intro": [], "voice_test": "Testing", "after_scare": ["Gotcha"]}
+        self.texts = {"intro": [], "voice_test": "Testing", "after_scare": ["Gotcha"], "setup_code": "Code {code}"}
         FakeVoice.latest = self
 
     def __call__(self, text):
@@ -190,10 +190,73 @@ def test_setup_code_lives_in_an_owner_only_file_and_works_once(running_app):
     assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
     assert set_first_pin(running_app).status_code == 200
     assert path.read_text().strip() != code            # a used code is replaced
-    # There is no way to make the Count say it
+    # Said once at start (no PIN yet), never on request
     running_app.post("/api/play/code/setup")
     time.sleep(0.4)
+    assert FakeVoice.latest.spoken == ["Code " + ", ".join(code)]
+
+
+def test_no_code_announcement_when_a_pin_exists(monkeypatch):
+    from graf_reachula.settings import Settings
+
+    stored = Settings()
+    stored.set_pin("471100")
+    stored.save()
+    monkeypatch.setattr(main_mod, "Stage", FakeStage)
+    monkeypatch.setattr(main_mod, "Voice", FakeVoice)
+    monkeypatch.setattr(main_mod, "Haunt", FakeHaunt)
+    app = main_mod.GrafReachula.__new__(main_mod.GrafReachula)
+    app.settings_app = FastAPI()
+    stop = threading.Event()
+    thread = threading.Thread(target=app.run, args=(SimpleNamespace(), stop), daemon=True)
+    thread.start()
+    time.sleep(0.3)
+    stop.set()
+    thread.join(5)
     assert FakeVoice.latest.spoken == []
+
+
+def client_from(running_app, address, host="reachy-mini.local:8042"):
+    return TestClient(running_app.app, client=(address, 50000),
+                      headers={"host": host, "x-graf-reachula": "1"})
+
+
+def test_a_guest_guessing_wrong_pins_does_not_lock_out_the_owner(running_app):
+    set_first_pin(running_app, "secret1")
+    guest = client_from(running_app, "192.168.1.66")
+    codes = [guest.post("/api/settings", json={"changes": {"llm_model": "x"}},
+                        headers={"x-graf-pin": f"guess{i}"}).status_code for i in range(7)]
+    assert codes[-1] == 429
+    owner = client_from(running_app, "192.168.1.20")
+    assert owner.post("/api/settings", json={"changes": {"llm_model": "x"}},
+                      headers={"x-graf-pin": "secret1"}).status_code == 200
+
+
+def test_many_addresses_guessing_hit_the_global_backstop(running_app):
+    set_first_pin(running_app, "secret1")
+    for i in range(main_mod.GLOBAL_FAILURES):
+        client_from(running_app, f"10.0.0.{i + 1}").post(
+            "/api/settings", json={"changes": {"llm_model": "x"}}, headers={"x-graf-pin": "nope"})
+    owner = client_from(running_app, "192.168.1.20")
+    assert owner.post("/api/settings", json={"changes": {"llm_model": "x"}},
+                      headers={"x-graf-pin": "secret1"}).status_code == 429
+    assert owner.post("/api/settings", json={"changes": {"talk": False}}).status_code == 200
+
+
+def test_a_local_proxy_does_not_count_as_this_computer(running_app):
+    local = client_from(running_app, "127.0.0.1", host="localhost:8042")
+    assert local.post("/api/settings", json={"changes": {"new_pin": "471100"}},
+                      headers={"x-forwarded-for": "192.168.1.66"}).status_code == 403
+    ipv6 = client_from(running_app, "::1", host="[::1]:8042")
+    assert ipv6.post("/api/settings", json={"changes": {"new_pin": "471100"}}).status_code == 200
+
+
+def test_first_pin_without_code_only_on_the_apps_own_computer(running_app):
+    """Reachy Mini Lite: the app runs on your computer, so the owner sits right there."""
+    spoofed = client_from(running_app, "192.168.1.66", host="localhost:8042")   # Host header alone is not enough
+    assert spoofed.post("/api/settings", json={"changes": {"new_pin": "471100"}}).status_code == 403
+    local = client_from(running_app, "127.0.0.1", host="localhost:8042")
+    assert local.post("/api/settings", json={"changes": {"new_pin": "471100"}}).status_code == 200
 
 
 def test_play_queue_is_capped(running_app):

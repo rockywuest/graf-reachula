@@ -48,7 +48,7 @@ def test_anthropic_message_has_image_block_first_then_text():
     kwargs = brain.client.messages.create.call_args.kwargs
     assert kwargs["system"] == SYSTEM
     assert kwargs["model"] == "claude-test"
-    assert kwargs["max_tokens"] == 200
+    assert kwargs["max_tokens"] == 1024   # room for thinking; tidy() cuts the length
     assert kwargs["output_config"] == {"effort": "low"}
     content = kwargs["messages"][-1]
     assert content["role"] == "user"

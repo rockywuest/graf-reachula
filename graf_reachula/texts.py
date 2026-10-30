@@ -15,6 +15,8 @@ TEXTS = {
         ],
         "voice_test": "Good evening. Count Reachula speaking. Can you hear my spooky voice?",
         "error": "Oh dear, my crystal ball has gone foggy. Ask me again in a moment!",
+        "setup_code": "Psst, for my owner: no settings PIN yet. Your setup code is {code}. "
+                      "Once more: {code}.",
         "safe": "Ooh, my crystal ball shows only pumpkins and friendly ghosts. Ask me for a riddle!",
         "persona": "Reply in English, even if the transcript looks like another language "
                    "(the speech recognition sometimes guesses wrong).",
@@ -33,6 +35,8 @@ TEXTS = {
         ],
         "voice_test": "Guten Abend. Hier spricht Graf Reachula. Hört ihr meine Gruselstimme?",
         "error": "Oje, meine Kristallkugel ist beschlagen. Frag mich gleich noch einmal!",
+        "setup_code": "Psst, für meinen Besitzer: Noch keine PIN gesetzt. Dein Einrichtungscode lautet {code}. "
+                      "Noch einmal: {code}.",
         "safe": "Uuh, meine Kristallkugel zeigt nur Kürbisse und liebe Gespenster. Frag mich nach einem Rätsel!",
         "persona": "Antworte immer auf Deutsch, auch wenn das Transkript nach einer anderen "
                    "Sprache aussieht (die Spracherkennung irrt sich manchmal).",

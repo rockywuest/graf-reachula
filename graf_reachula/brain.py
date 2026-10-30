@@ -10,7 +10,9 @@ import re
 log = logging.getLogger(__name__)
 
 MAX_HISTORY = 12   # messages kept as context (6 exchanges)
-MAX_REPLY_TOKENS = 200  # spoken replies are short; a cap also keeps the model fast
+# Only a guard against run-away replies: models that think (Claude, Gemini, ...) spend
+# part of it on thinking, and a tight cap would leave no text. tidy() cuts the length.
+MAX_REPLY_TOKENS = 1024
 MAX_REPLY_CHARS = 320   # two spoken sentences; longer replies outlast the voice service's timeout
 
 # Reasoning models may put their thinking into the reply text
@@ -63,7 +65,8 @@ class Brain:
         else:
             import openai
 
-            # OpenAI's reasoning models count thinking against the cap and would return nothing
+            # OpenAI's reasoning models reject max_tokens, and max_completion_tokens would count
+            # their thinking too (risking empty replies): no cap there, tidy() cuts the length
             self.cap_tokens = self.provider != "openai"
 
             self.client = openai.OpenAI(api_key=llm["api_key"], base_url=llm["base_url"] or None,

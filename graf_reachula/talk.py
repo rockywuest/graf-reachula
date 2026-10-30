@@ -113,9 +113,15 @@ class Talk:
                 self.chat_error = f"Chat model failed: {describe_error(e)}"
                 self.voice(self.voice.texts["error"])
                 return
-            self.chat_error = ""
             if self.stop_event.is_set():
                 return   # settings changed while thinking; a newer conversation has taken over
+            if not reply:
+                # E.g. the model spent its whole budget thinking: say so instead of staying mute
+                log.warning("The chat model returned no text")
+                self.chat_error = "Chat model returned no answer (try another model)"
+                self.voice(self.voice.texts["error"])
+                return
+            self.chat_error = ""
             spoken, effects = split_effects(reply)
             log.info("Count answers (%d words) %s", len(spoken.split()), effects)
             log.debug("Count: %r", spoken)

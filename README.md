@@ -135,14 +135,19 @@ Models without vision work too; the Count then just can't see.
 Guests on your Wi-Fi can open the app's page too. So providers, keys, the voice, the wake word and switching
 talking on are locked until you set a **settings PIN**, and then need it:
 
-1. Get the one-time setup code from the robot over SSH: `ssh pollen@reachy-mini.local`, then
-   `cat ~/.config/graf_reachula/setup-code.txt` (six digits). It is never logged or shown on the page, so guests
-   can't get it. A new code is made at every app start and after each PIN change.
+1. Get the one-time setup code (six digits). While no PIN is set, the Count says it right after his intro when
+   the app starts; missed it? Stop and start the app. Or over SSH: `ssh pollen@reachy-mini.local`, then
+   `cat ~/.config/graf_reachula/setup-code.txt`. It is never logged or shown on the page (spoken, it passes through the voice
+   service like every line), and once a PIN exists he never says it again. A new code is made at every app start
+   and whenever a PIN is set.
+   **Reachy Mini Lite:** open the page on the computer the app runs on (`http://localhost:8042`); there the first
+   PIN needs no code.
 2. Enter the setup code and a new PIN (at least 6 characters: letters, digits, ASCII symbols), **Save PIN**.
 
 Sounds, moves, scares and the language stay open, so guests can play, and anyone can switch talking **off**.
-After 5 wrong guesses the settings lock for 30 seconds, growing to at most 5 minutes (for everyone, you too;
-switching talking off still works). Forgot the PIN? Over SSH on
+After 5 wrong guesses the device (network address) that guessed is locked out for 30 seconds, growing to at most
+5 minutes; your own device is not affected. A guest who keeps changing address hits a backstop: 20 wrong guesses
+within 10 minutes lock the PIN settings for everyone for 1 minute. Switching talking off always works. Forgot the PIN? Over SSH on
 the robot, as the normal user (not with `sudo`): `/venvs/apps_venv/bin/python -m graf_reachula.settings --reset-pin`.
 It counts at once, no restart needed; then set a new PIN with the setup code. The page uses plain HTTP, so only
 enter the PIN on a network you trust.
@@ -223,10 +228,15 @@ Auf einer lauten Party antwortet der Graf nur, wenn man ihn ruft („Reachy“, 
 „reach“ oder „count“ können ihn wecken. 
 **Zuerst eine PIN setzen:** Gäste im WLAN können die App-Seite auch öffnen. Deshalb sind Anbieter, Schlüssel, Stimme,
 Weckwort und das Einschalten des Sprechens gesperrt, bis eine PIN gesetzt ist, und brauchen danach die PIN. Den
-Einrichtungscode gibt es nur auf dem Roboter: per SSH `cat ~/.config/graf_reachula/setup-code.txt` (sechs Ziffern,
-nie im Log oder auf der Seite). Unter **Settings PIN** Code und neue PIN (mindestens 6 Zeichen, ohne Umlaute) eintragen, **Save PIN**. Geräusche,
+Einrichtungscode (sechs Ziffern) sagt der Graf beim App-Start nach seiner Begrüßung an, solange noch keine PIN
+gesetzt ist (verpasst? App stoppen und neu starten); per SSH steht er in `~/.config/graf_reachula/setup-code.txt`.
+Im Log oder auf der Seite erscheint er nie, und mit gesetzter PIN sagt der Graf ihn nie wieder an. **Reachy Mini
+Lite:** Die Seite auf dem Rechner öffnen, auf dem die App läuft (`http://localhost:8042`), dort geht die erste
+PIN ohne Code. Unter **Settings PIN** Code und neue PIN (mindestens 6 Zeichen, ohne Umlaute) eintragen, **Save PIN**. Geräusche,
 Bewegungen, Erschrecken und Sprache bleiben für alle offen, und Ausschalten des Sprechens geht immer. Nach 5
-Fehlversuchen sperrt die Seite für 30 Sekunden, höchstens 5 Minuten (für alle; Sprechen ausschalten geht trotzdem). PIN vergessen? Per SSH auf dem Roboter als
+Fehlversuchen ist das Gerät (die Netzwerkadresse), das geraten hat, für 30 Sekunden gesperrt, höchstens 5 Minuten;
+dein eigenes Gerät nicht. Wechselt ein Gast ständig die Adresse, greift eine Bremse: 20 Fehlversuche in 10 Minuten
+sperren die PIN-Einstellungen für alle für 1 Minute. Sprechen ausschalten geht immer. PIN vergessen? Per SSH auf dem Roboter als
 normaler Benutzer (ohne `sudo`): `/venvs/apps_venv/bin/python -m graf_reachula.settings --reset-pin`; das wirkt sofort,
 ohne Neustart. Gespeicherte Schlüssel zeigt die Seite nie wieder an, und sie gehen nur an die offizielle Adresse
 ihres Anbieters. Die PIN schützt nur diese App-Seite: Der Steuerdienst des Roboters (Port 8000) installiert und

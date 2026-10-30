@@ -198,3 +198,20 @@ def test_chat_error_stays_until_the_chat_works_again(robot, stage):
     t.brain.reply.side_effect = None
     t.handle("Reachy?")
     assert t.last_error == ""
+
+
+def test_an_empty_answer_is_not_silence(robot, stage):
+    """A thinking model can use up its budget and return no text: say so, don't go mute."""
+    t = make_talk(robot, stage)
+    t.brain.reply.return_value = ""
+    t.handle("Reachy, what am I?")
+    t.voice.assert_called_once_with("ERROR LINE")
+    assert "no answer" in t.last_error
+
+
+def test_a_stopped_conversation_stays_quiet_on_an_empty_answer(robot, stage):
+    t = make_talk(robot, stage)
+    t.brain.reply.return_value = ""
+    t.stop_event.set()
+    t.handle("Reachy?")
+    t.voice.assert_not_called()
