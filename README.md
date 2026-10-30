@@ -61,9 +61,8 @@ The Count needs a **chat model that can see** (for the camera) and **speech-to-t
    (leave its key empty, it reuses the chat key). Click **Save**.
 3. The status line should say *"The Count is listening"*. Call him by name: *"Count, what's my costume?"*
 
-In our tests he heard a question in 0.4 s and answered with a look at the camera in about 1 s.
-In our test an answer with a photo cost about 0.1 cent; speech-to-text costs a few cents per hour of talking
-(check xAI's current prices).
+In our test runs (October 2026) the Count usually answered within a few seconds, and an answer with a photo cost
+about 0.1 cent. Speed depends on your network and the model; check xAI's current prices.
 
 Any other combination works too. Keys can also be set as environment variables:
 
@@ -81,9 +80,9 @@ Any other combination works too. Keys can also be set as environment variables:
 
 | Speech-to-text | Default model | Key variable |
 |---|---|---|
-| xAI (Grok) — knows the Count's names | — | `XAI_API_KEY` |
+| xAI (Grok) — biased towards the Count's names | — | `XAI_API_KEY` |
 | OpenAI | `gpt-transcribe` (falls back to `gpt-4o-mini-transcribe` if rejected) | `OPENAI_API_KEY` |
-| ElevenLabs Scribe — knows the Count's names | `scribe_v2` | `ELEVENLABS_API_KEY` |
+| ElevenLabs Scribe — biased towards the Count's names | `scribe_v2` | `ELEVENLABS_API_KEY` |
 | Groq (fast, generous free tier) | `whisper-large-v3-turbo` | `GROQ_API_KEY` |
 | Custom (OpenAI-compatible `/audio/transcriptions`) | your choice | — |
 
@@ -95,28 +94,31 @@ Out of the box the Count speaks with a free Microsoft Edge voice, made deeper an
 [ElevenLabs](https://elevenlabs.io) key he gets a theatrical voice:
 
 1. At [elevenlabs.io → API keys](https://elevenlabs.io/app/settings/api-keys), create a key with the permissions
-   **Text to Speech** and **Voices: read**. Add **Speech to Text** if ElevenLabs should also listen (Scribe).
+   **Text to Speech** and **Voices: read** (the latter only if you leave the voice ID empty). Add **Speech to Text**
+   if ElevenLabs should also listen; then choose **elevenlabs** under *Speech-to-text* (its key is reused).
+   You still need a chat key.
 2. On the app's page, under **Voice**: service `ElevenLabs`, paste the key, **Save voice**, then **Test the voice**.
 3. Voice ID: leave it empty and the Count picks a deep narrator voice from your account, or paste any voice ID
    from your [voice library](https://elevenlabs.io/app/voice-library). For German parties a German voice sounds best.
 
 The default model is `eleven_flash_v2_5` (fast, English and German). Every line uses your ElevenLabs characters;
 repeated lines (intro, scare lines) are cached. If ElevenLabs fails (no credits, missing permission, offline), the
-Count switches to the free voice for 5 minutes and the page shows why under *Current voice*.
+Count switches to the free voice for 5 minutes and the page shows why under *Current voice* (after the next
+spoken line).
 
 ### Troubleshooting
 
 | Problem | Fix |
 |---|---|
-| The Count doesn't answer | Call him by name ("Count, …", "Reachy, …"). Check the status line on the app's page. |
+| The Count doesn't answer | Call him by name ("Count, …", "Reachy, …"). The status line on the app's page shows speech-to-text or chat errors (for example a key without the right permission). |
 | *"Add a chat key and a speech-to-text key"* | Talking needs both. With xAI, one key covers both. |
 | *Current voice: … missing the permission …* | Edit the ElevenLabs key's permissions (see step 3), then **Save voice** again. |
 | A default model stopped working | Providers rename models often: type a current model name in the *Model* field. |
 
 Models without vision work too; the Count then just can't see.
 
-The settings page has no password: use it only on a network you trust. Keys are never shown again once saved,
-and a stored key is dropped whenever the provider or base URL changes.
+The settings page has no password: use it only on a network you trust. After saving, the page shows only the last four
+characters of each key, and a stored key is dropped whenever the provider or base URL changes.
 
 At a loud party the Count only answers when called by name ("Reachy", "Count", "Graf"), and for 25 seconds
 after his last answer. Ordinary words like "reach" or "count" can wake him too. You can switch this off on the
@@ -154,7 +156,7 @@ Zukunft voraus und erzählt Gruselgeschichten in drei Sätzen.
 
 Gruselig, aber kindgerecht: ab und zu ein kleiner Schreck, nie Blut, nichts Gemeines, meist nur Gekicher.
 
-### Einrichtung in drei Stufen (alles ab Stufe 1 ist optional)
+### Einrichtung in drei Stufen (Stufe 1 reicht zum Spuken, alles danach ist optional)
 
 **1. Spuken, ohne Schlüssel:** In Reachy Mini Control unter *Applications → Discover Apps* **Count Reachula**
 installieren und starten. Auf der App-Seite (`http://reachy-mini.local:8042`) die Sprache auf **Deutsch** stellen,
@@ -163,16 +165,22 @@ Geräusche und Bewegungen testen. Der Graf lauert, erschreckt mit „BUH!“ und
 **2. Sprechen, mit einem Schlüssel (empfohlen: xAI):** Auf [console.x.ai](https://console.x.ai) etwas Guthaben
 aufladen und einen API-Schlüssel anlegen. Auf der App-Seite unter **Talking Count** als Chat-Modell und als
 Spracherkennung `xai` wählen, den Schlüssel einmal beim Chat-Modell eintragen, **Save**. Die Statuszeile zeigt
-dann *„The Count is listening“*. Eine Antwort kostet etwa 0,1–0,2 Cent. Andere Anbieter (Claude, OpenAI, Gemini,
+dann *„The Count is listening“* (die App-Seite ist englisch: die Felder heißen *Chat model* und *Speech-to-text*).
+In unseren Tests (Oktober 2026) kostete eine Antwort mit Foto etwa 0,1 Cent; aktuelle Preise bitte prüfen. Andere Anbieter (Claude, OpenAI, Gemini,
 OpenRouter, Mistral, Groq, Ollama, ElevenLabs Scribe) stehen in den Tabellen oben; Claude braucht für die
 Spracherkennung einen zweiten Schlüssel.
 
 **3. Echte Vampirstimme mit ElevenLabs (optional):** Unter [elevenlabs.io → API keys](https://elevenlabs.io/app/settings/api-keys)
-einen Schlüssel mit den Berechtigungen **Text to Speech** und **Voices: read** anlegen (für die Spracherkennung
-zusätzlich **Speech to Text**). Auf der App-Seite unter **Voice** `ElevenLabs` wählen, Schlüssel eintragen,
+einen Schlüssel mit den Berechtigungen **Text to Speech** und **Voices: read** anlegen (Letzteres nur, wenn die
+Stimmen-ID leer bleibt). Für die Spracherkennung zusätzlich **Speech to Text** und unter *Speech-to-text*
+**elevenlabs** wählen (der Schlüssel wird wiederverwendet); ein Chat-Schlüssel bleibt nötig. Auf der App-Seite unter **Voice** `ElevenLabs` wählen, Schlüssel eintragen,
 **Save voice**, dann **Test the voice**. Ohne Stimmen-ID sucht der Graf selbst eine tiefe Stimme aus; für deutsche
 Partys klingt eine deutsche Stimme aus eurer Stimmenbibliothek am besten. Fällt ElevenLabs aus, spricht er
-5 Minuten mit der kostenlosen Stimme weiter, und die App-Seite zeigt den Grund. Die Schlüssel bleiben auf dem Roboter.
+5 Minuten mit der kostenlosen Stimme weiter, und die App-Seite zeigt den Grund. Die Schlüssel bleiben auf dem Roboter;
+nach dem Speichern zeigt die Seite nur die letzten vier Zeichen.
+
+**Der Graf antwortet nicht?** Beim Namen rufen („Graf, …“). Fehler der Spracherkennung oder des Chat-Modells
+(etwa ein Schlüssel ohne passende Berechtigung) zeigt die Statuszeile auf der App-Seite.
 
 Auf einer lauten Party antwortet der Graf nur, wenn man ihn ruft („Reachy“, „Graf“, „Count“). Auch Wörter wie
 „reach“ oder „count“ können ihn wecken. Die Einstellungsseite hat kein Passwort: nur in vertrauenswürdigen Netzen nutzen.
@@ -183,7 +191,8 @@ Erschrecken auf der App-Seite ausschalten.
 **Datenschutz:** Mit eingeschalteter Sprachfunktion geht alles, was im Raum gesprochen wird, als Audio an die
 Spracherkennung, nicht nur das, was an den Grafen gerichtet ist. Ein Kamerabild geht nur an das Chat-Modell, wenn er
 antwortet. Ohne Schlüssel gehen nur die Texte seiner festen Sätze an den Online-Sprachdienst von Microsoft. Audio und
-Bilder werden nicht gespeichert; das App-Log zeigt Fragen und Antworten. Sagt euren Gästen, dass ein sprechender
+Bilder werden nicht gespeichert; das App-Log zeigt Fragen und Antworten. Der gewählte Anbieter bekommt Stimmen und
+Fotos eurer Gäste; einige Anbieter verarbeiten Daten in den USA. Sagt euren Gästen, dass ein sprechender
 Roboter mit Kamera auf der Party ist, bevor ihr die Sprachfunktion einschaltet.
 
 ---

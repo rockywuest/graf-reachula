@@ -30,8 +30,14 @@ function show(settings) {
     fillSelect("stt_provider", settings.stt_providers);
     for (const t of TOGGLES) $(t).checked = !!settings[t];
     for (const f of [...FIELDS, ...VOICE_FIELDS]) $(f).value = settings[f] ?? "";
+    showStatus(settings);
+}
+
+// Status lines only: refreshed regularly without touching what the user is typing
+function showStatus(settings) {
     let text = "The Count haunts with sounds and moves (talking is off).";
     if (settings.talking) text = "🧛 The Count is listening.";
+    if (settings.talking && settings.listen_error) text = "⚠️ " + settings.listen_error;
     else if (settings.talk_error) text = "Talking failed: " + settings.talk_error;
     else if (settings.talk && !settings.can_talk) text = "Add a chat key and a speech-to-text key to make the Count talk.";
     $("status").textContent = text;
@@ -85,3 +91,4 @@ $("save").addEventListener("click", () => {
 });
 
 api("/api/settings").then(show).catch((e) => { $("status").textContent = e.message; });
+setInterval(() => { api("/api/settings", {}, 1).then(showStatus).catch(() => {}); }, 10000);

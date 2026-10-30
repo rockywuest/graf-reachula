@@ -48,11 +48,14 @@ class Haunt:
         log.info("BOO!")
         self.last_scare = time.time()
         self.lurking = False
-        # Prepare the line first: a slow voice service must not keep the head up
-        line = self.say.render(random.choice(self.say.texts["after_scare"])) if self.say else None
+        # The jump comes first: whoever walked up must get the BOO right now
         with self.stage.lock:
             self.stage.jump()
             self.stage.play_sound("boo")
+        # The line after the scare is pre-rendered at startup; if not, render it
+        # without holding the stage, so a slow voice service can't freeze the robot
+        line = self.say.render(random.choice(self.say.texts["after_scare"])) if self.say else None
+        with self.stage.lock:
             if "laughing" in self.stage.moves:
                 self.stage.play_move("laughing")
             if self.say:

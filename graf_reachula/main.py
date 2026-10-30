@@ -45,6 +45,7 @@ class GrafReachula(ReachyMiniApp):
         talk_thread: threading.Thread | None = None
         status = {"talking": False, "talk_error": ""}
         talk_lock = threading.Lock()
+        current = {"talk": None}
         requests: list[tuple[str, str]] = []   # effects requested from the web page
 
         def restart_talking():
@@ -66,6 +67,7 @@ class GrafReachula(ReachyMiniApp):
                 log.error("Talking disabled: %s", e)
                 status["talk_error"] = str(e)
                 return
+            current["talk"] = talk
             talk_stop = threading.Event()
             talk_thread = threading.Thread(target=talk.run, args=(talk_stop,), daemon=True)
             talk_thread.start()
@@ -78,13 +80,18 @@ class GrafReachula(ReachyMiniApp):
             if talk_thread is not None:
                 talk_thread.join(timeout=2)
             status["talking"] = False
+            current["talk"] = None
 
         # --- web page routes (the server starts before run(); the page retries) ---
 
         @self.settings_app.get("/api/settings")
+        def live_status() -> dict:
+            talk = current["talk"]
+            return {**status, "voice_status": voice.status, "listen_error": talk.last_error if talk else ""}
+
         def get_settings(request: Request):
             check_host(request)
-            return {**settings.public(), **status, "voice_status": voice.status}
+            return {**settings.public(), **live_status()}
 
         @self.settings_app.post("/api/settings")
         def update_settings(update: SettingsUpdate, request: Request):
@@ -97,7 +104,7 @@ class GrafReachula(ReachyMiniApp):
                 voice.reset()
             if talk_related & set(update.changes):
                 restart_talking()
-            return {**settings.public(), **status, "voice_status": voice.status}
+            return {**settings.public(), **live_status()}
 
         @self.settings_app.post("/api/play/{kind}/{name}")
         def play(kind: str, name: str, request: Request):
@@ -114,6 +121,7 @@ class GrafReachula(ReachyMiniApp):
                 return
         stage.play_sound("laugh")
 
+        threading.Thread(target=voice.warm_up, args=(voice.texts["after_scare"],), daemon=True).start()
         restart_talking()
         haunt_thread = threading.Thread(target=haunt.run, args=(stop_event,), daemon=True)
         haunt_thread.start()

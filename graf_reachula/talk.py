@@ -11,6 +11,7 @@ import cv2
 from graf_reachula.brain import Brain
 from graf_reachula.ears import Ears
 from graf_reachula.texts import system_prompt
+from graf_reachula.voice import describe_error
 
 log = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class Talk:
         self.brain = Brain(settings.llm(), system_prompt(settings.language))
         self.last_reply = 0.0
         self.stop_event = threading.Event()
+        self.last_error = ""      # shown on the settings page
 
     def perform(self, effects):
         for kind, arg in effects:
@@ -78,6 +80,7 @@ class Talk:
                 reply = self.brain.reply(text, frame_as_jpeg_b64(self.robot))
             except Exception as e:
                 log.error("LLM call failed: %s", e)
+                self.last_error = f"Chat model failed: {describe_error(e)}"
                 self.voice(self.voice.texts["error"])
                 return
             if self.stop_event.is_set():
@@ -101,8 +104,10 @@ class Talk:
                     text = self.ears.transcribe(audio)
                 except Exception as e:
                     log.error("Speech-to-text failed: %s", e)
+                    self.last_error = f"Speech-to-text failed: {describe_error(e)}"
                     time.sleep(1)
                     continue
+                self.last_error = ""
                 if text and not stop_event.is_set():
                     self.handle(text)
             except Exception:

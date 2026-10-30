@@ -71,12 +71,15 @@ def describe_error(e: Exception) -> str:
     response = getattr(e, "response", None)
     if response is not None:
         try:
-            detail = response.json().get("detail", {})
+            body = response.json()
+            detail = body.get("detail") or body.get("error") or {}
             if isinstance(detail, dict) and detail.get("message"):
-                return detail["message"]
+                return detail["message"][:200]
+            if isinstance(detail, str):
+                return detail[:200]
         except Exception:
             pass
-        return f"HTTP {response.status_code}"
+        return f"HTTP {getattr(response, 'status_code', '?')}"
     return str(e)[:160]
 
 
@@ -111,6 +114,7 @@ class Voice:
         self.picked_voice: dict[str, str] = {}   # api key -> voice ID chosen for it
         self.lock = threading.Lock()              # the haunt, talk and main threads all speak
         self.eleven_paused_until = 0.0
+        self.eleven_error = ""
         self.status = ""                          # shown on the settings page
 
     @property
@@ -123,11 +127,14 @@ class Voice:
                 import httpx
 
                 self.http = httpx.Client(timeout=TIMEOUT)
-            voice = tts["voice"]
-            if not voice:
-                if tts["api_key"] not in self.picked_voice:
-                    self.picked_voice[tts["api_key"]] = pick_elevenlabs_voice(self.http, tts["api_key"])
-                voice = self.picked_voice[tts["api_key"]]
+            client = self.http
+            voice = tts["voice"] or self.picked_voice.get(tts["api_key"])
+        if not voice:
+            # A network call: don't make the other speakers wait for it
+            voice = pick_elevenlabs_voice(client, tts["api_key"])
+            with self.lock:
+                self.picked_voice[tts["api_key"]] = voice
+        with self.lock:
             key = (text, voice, tts["model"], self.settings.language)
             cached = self.cache.get(key)
             if cached is not None:
@@ -145,7 +152,10 @@ class Voice:
     def render(self, text: str) -> tuple[np.ndarray, int] | None:
         """Turn a line into audio (without playing it)."""
         tts = self.settings.tts()
-        if tts["provider"] == "elevenlabs" and time.time() >= self.eleven_paused_until:
+        if tts["provider"] == "elevenlabs" and time.time() < self.eleven_paused_until:
+            minutes = max(1, round((self.eleven_paused_until - time.time()) / 60))
+            self.status = f"Free Edge voice for {minutes} more min, ElevenLabs failed: {self.eleven_error}"
+        elif tts["provider"] == "elevenlabs":
             try:
                 result = self._elevenlabs(text, tts)
                 self.status = "ElevenLabs"
@@ -154,16 +164,37 @@ class Voice:
                 # Out of credits, bad key or offline: the party goes on with the free voice
                 log.warning("ElevenLabs failed (%s); using the Edge voice for %d minutes", e, COOLDOWN // 60)
                 self.eleven_paused_until = time.time() + COOLDOWN
-                self.status = f"Free Edge voice for {COOLDOWN // 60} min, ElevenLabs failed: {describe_error(e)}"
+                self.eleven_error = describe_error(e)
+                self.status = f"Free Edge voice for {COOLDOWN // 60} min, ElevenLabs failed: {self.eleven_error}"
         elif tts["provider"] == "edge":
             missing_key = self.settings.tts_provider == "elevenlabs"
             self.status = "Free Edge voice" + (" (ElevenLabs chosen, but no key yet)" if missing_key else "")
-        return synthesize(text, tts["edge_voice"])
+        key = ("edge", text, tts["edge_voice"])
+        with self.lock:
+            cached = self.cache.get(key)
+        if cached is not None:
+            return cached
+        result = synthesize(text, tts["edge_voice"])
+        if result is not None:
+            with self.lock:
+                self.cache[key] = result
+                while len(self.cache) > CACHE_SIZE:
+                    self.cache.popitem(last=False)
+        return result
+
+    def warm_up(self, lines):
+        """Render lines ahead of time (e.g. the lines after a scare), so they play instantly."""
+        for line in lines:
+            try:
+                self.render(line)
+            except Exception as e:
+                log.info("Could not pre-render a line: %s", e)
 
     def reset(self):
         """Settings changed: try ElevenLabs again right away."""
-        self.eleven_paused_until = 0.0
-        self.picked_voice.clear()
+        with self.lock:
+            self.eleven_paused_until = 0.0
+            self.picked_voice.clear()
 
     def play(self, rendered):
         if rendered is not None:

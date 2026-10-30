@@ -142,3 +142,22 @@ def test_scares_turned_off_never_lurks_or_scares(stage, fast_haunt):
     finally:
         stop.set()
         thread.join(5)
+
+
+def test_jump_scare_jumps_before_the_line_is_rendered():
+    """The BOO must come at once; preparing the voice line may take a moment."""
+    import threading
+    from types import SimpleNamespace
+    from graf_reachula.haunt import Haunt
+
+    order = []
+    stage = SimpleNamespace(lock=threading.RLock(), moves={},
+                            jump=lambda: order.append("jump"),
+                            play_sound=lambda name: order.append(name),
+                            play_move=lambda name: order.append(name),
+                            neutral=lambda: order.append("neutral"))
+    say = SimpleNamespace(texts={"after_scare": ["Gotcha!"]},
+                          render=lambda text: order.append("render") or "audio",
+                          play=lambda audio: order.append("play"))
+    Haunt(robot=None, stage=stage, settings=None, say=say).jump_scare()
+    assert order == ["jump", "boo", "render", "play", "neutral"]
