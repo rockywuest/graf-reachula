@@ -58,7 +58,8 @@ def synthesize_elevenlabs(text: str, api_key: str, voice: str, model: str, langu
         f"{ELEVENLABS_URL}/text-to-speech/{voice}",
         params={"output_format": f"pcm_{ELEVENLABS_RATE}"},
         headers={"xi-api-key": api_key},
-        json={"text": text, "model_id": model, "language_code": language},
+        # Only the v2.5 models take a language code; multilingual_v2 rejects it
+        json={"text": text, "model_id": model, **({"language_code": language} if "v2_5" in model else {})},
     )
     response.raise_for_status()
     pcm = np.frombuffer(response.content, dtype="<i2")

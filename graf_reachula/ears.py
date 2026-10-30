@@ -15,6 +15,8 @@ END_SILENCE = 0.8        # seconds of quiet that end an utterance
 MIN_SPEECH = 0.4         # shorter blips are ignored
 SPEECH_OVER_FLOOR = 2.0
 MAX_SPEECH = 6.0        # longer sounds (music) are cut into chunks; a call inside one is still found
+FLUSH_SECONDS = 0.05    # the mic delivers a sample every 16 ms, so draining "until empty" never ends
+FLUSH_READS = 20
 
 # Whisper invents these on noise (it was trained on subtitled videos)
 PHANTOMS = re.compile(
@@ -101,13 +103,16 @@ class Ears:
         self.vad = EnergyVAD(self.rate)
         self.buffer = np.zeros(0, dtype=np.float32)
         with stage.lock:
+            stage.ears = self            # the current listener; older ones must not touch the mic
+            stage.recording = True
             self.robot.media.start_recording()
-        stage.recording = True
-        stage.ears = self            # the current listener; older ones must not touch the mic
 
     def _flush(self):
-        while self.robot.media.get_audio_sample() is not None:
-            pass
+        """Throw away what the mic has queued, for a bounded time (audio keeps flowing)."""
+        deadline = time.monotonic() + FLUSH_SECONDS
+        for _ in range(FLUSH_READS):
+            if time.monotonic() > deadline or self.robot.media.get_audio_sample() is None:
+                break
         self.buffer = np.zeros(0, dtype=np.float32)
         self.vad.reset()
 

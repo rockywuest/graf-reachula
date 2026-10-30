@@ -48,7 +48,7 @@ def test_anthropic_message_has_image_block_first_then_text():
     kwargs = brain.client.messages.create.call_args.kwargs
     assert kwargs["system"] == SYSTEM
     assert kwargs["model"] == "claude-test"
-    assert kwargs["max_tokens"] == 1024
+    assert kwargs["max_tokens"] == 200
     assert kwargs["output_config"] == {"effort": "low"}
     content = kwargs["messages"][-1]
     assert content["role"] == "user"
@@ -214,3 +214,50 @@ def test_openai_vision_fallback_on_text_only_model():
 def test_openai_empty_content_becomes_empty_string():
     brain = openai_brain([SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None))])])
     assert brain.reply("hi", None) == ""
+
+
+def test_tidy_strips_thinking_and_shortens_long_replies():
+    from graf_reachula.brain import MAX_REPLY_CHARS, tidy
+
+    assert tidy("<think>hmm, costume?</think> Boo! A pirate!", "SAFE") == "Boo! A pirate!"
+    long = "A ghost story begins. " * 40 + "[sound:ghost]"
+    short = tidy(long, "SAFE")
+    assert len(short) <= MAX_REPLY_CHARS and short.endswith(".")
+    assert tidy(("word " * 70) + "[sound:gho", "SAFE").count("[") == 0
+
+
+def test_tidy_replaces_unsafe_replies_with_the_safe_line():
+    from graf_reachula.brain import tidy
+
+    assert tidy("Let's talk about drugs!", "SAFE") == "SAFE"
+    assert tidy("I only bite gummy bears! [move:laughing]", "SAFE") == "I only bite gummy bears! [move:laughing]"
+
+
+def test_tidy_speaks_the_safe_line_when_only_thinking_came_back():
+    from graf_reachula.brain import tidy
+
+    assert tidy("<think>a costume? maybe", "SAFE") == "SAFE"
+    assert tidy("", "SAFE") == ""
+    assert tidy("Muahaha, I'll get you, little pumpkin!", "SAFE") != "SAFE"
+
+
+def test_reply_cap_is_dropped_when_a_model_rejects_max_tokens():
+    from unittest.mock import MagicMock
+    from graf_reachula.brain import Brain
+
+    brain = Brain({"provider": "xai", "model": "m", "api_key": "k", "base_url": "https://x/v1"}, "sys")
+    ok = MagicMock()
+    ok.choices = [MagicMock(message=MagicMock(content="Boo!"))]
+    calls = []
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        if "max_tokens" in kwargs:
+            raise RuntimeError("Unsupported parameter: 'max_tokens'")
+        return ok
+
+    brain.client = MagicMock()
+    brain.client.chat.completions.create.side_effect = create
+    assert brain.reply("hi", None) == "Boo!"
+    assert "max_tokens" in calls[0] and "max_tokens" not in calls[1]
+    assert brain.cap_tokens is False

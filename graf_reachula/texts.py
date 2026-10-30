@@ -15,6 +15,7 @@ TEXTS = {
         ],
         "voice_test": "Good evening. Count Reachula speaking. Can you hear my spooky voice?",
         "error": "Oh dear, my crystal ball has gone foggy. Ask me again in a moment!",
+        "safe": "Ooh, my crystal ball shows only pumpkins and friendly ghosts. Ask me for a riddle!",
         "persona": "Reply in English, even if the transcript looks like another language "
                    "(the speech recognition sometimes guesses wrong).",
     },
@@ -32,6 +33,7 @@ TEXTS = {
         ],
         "voice_test": "Guten Abend. Hier spricht Graf Reachula. Hört ihr meine Gruselstimme?",
         "error": "Oje, meine Kristallkugel ist beschlagen. Frag mich gleich noch einmal!",
+        "safe": "Uuh, meine Kristallkugel zeigt nur Kürbisse und liebe Gespenster. Frag mich nach einem Rätsel!",
         "persona": "Antworte immer auf Deutsch, auch wenn das Transkript nach einer anderen "
                    "Sprache aussieht (die Spracherkennung irrt sich manchmal).",
     },
@@ -63,10 +65,16 @@ You can add effects with tags anywhere in your reply (they are removed before sp
 [move:NAME]   NAME = scared, startled, laughing, dying (a dramatic ghostly faint),
               surprised, shocked (a wobbly zap, Frankenstein style), angry (monster roar)
 Use at most one sound and one move per reply, and not in every reply.
-Use [scare] only when someone explicitly asks you to scare them.
+{scare_rule}
 
 {language_rule}"""
 
+SCARE_RULES = {
+    True: "Use [scare] only when someone explicitly asks you to scare them.",
+    False: "Jump scares are switched off tonight: never use [scare], and if someone asks to be scared, "
+           "tell a tiny spooky riddle instead.",
+}
 
-def system_prompt(language: str) -> str:
-    return SYSTEM_PROMPT.format(language_rule=TEXTS[language]["persona"])
+
+def system_prompt(language: str, scares: bool = True) -> str:
+    return SYSTEM_PROMPT.format(language_rule=TEXTS[language]["persona"], scare_rule=SCARE_RULES[bool(scares)])

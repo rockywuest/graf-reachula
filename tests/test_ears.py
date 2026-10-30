@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from graf_reachula import ears
+from conftest import FakeMedia, FakeRobot
 from graf_reachula.ears import END_SILENCE, FRAME_SECONDS, PHANTOMS, EnergyVAD, Ears
 
 RATE = 16000
@@ -179,3 +180,26 @@ def test_close_stops_mic_only_for_the_current_listener():
     new.close()   # talking switched off: the mic goes off
     assert not stage.recording and stage.ears is None
     robot.media.stop_recording.assert_called_once()
+
+
+def test_flush_ends_although_the_microphone_never_stops(stage):
+    """The mic delivers a sample every 16 ms: draining 'until empty' would never end."""
+    import time as _time
+
+
+    class EndlessMedia(FakeMedia):
+        reads = 0
+
+        def get_audio_sample(self):
+            EndlessMedia.reads += 1
+            return np.zeros((256, 2), dtype=np.float32)
+
+    robot = FakeRobot()
+    robot.media = EndlessMedia()
+    ears = Ears.__new__(Ears)
+    ears.robot, ears.stage, ears.rate = robot, stage, 16000
+    ears.vad = EnergyVAD(16000)
+    start = _time.monotonic()
+    ears._flush()
+    assert _time.monotonic() - start < 0.5
+    assert EndlessMedia.reads <= 20

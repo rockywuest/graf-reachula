@@ -47,6 +47,10 @@ class Haunt:
         return time.time() - self.stage.last_performance
 
     def jump_scare(self):
+        # "Scares off" also covers scares asked for by the chat model or the web page
+        if not self.settings.scares:
+            log.info("Scares are off; no BOO")
+            return
         # Also limits scares requested by the chat model or the web page
         if time.time() - self.last_scare < MIN_SCARE_GAP:
             return

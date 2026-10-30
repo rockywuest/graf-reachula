@@ -10,7 +10,7 @@ import cv2
 
 from graf_reachula.brain import Brain
 from graf_reachula.ears import Ears
-from graf_reachula.texts import system_prompt
+from graf_reachula.texts import TEXTS, system_prompt
 from graf_reachula.voice import describe_error
 
 log = logging.getLogger(__name__)
@@ -23,7 +23,8 @@ ADDRESSED = re.compile(
     r"\breach(y|ie|i|\s+it)?\b|\br[ae]?[aei]e?t?s?c?h[iy]e?\b|\bcount\b|\bgraf\b|dracula|re[ai]?chula",
     re.IGNORECASE,
 )
-ECHO_WINDOW = 10   # seconds in which a transcript may just be the Count's own last line
+ECHO_WINDOW = 5    # seconds after he finished (speech-to-text needs a moment, too) in which a transcript may be his own last line
+ECHO_OVERLAP = 0.9  # nearly all words his: a guest who answers ("yes, tell me a ghost story") repeats only some
 
 TAG = re.compile(r"\[(sound|move|scare)(?::([^\]]*))?\]", re.IGNORECASE)
 
@@ -56,11 +57,18 @@ class Talk:
         self.voice = voice
         self.haunt = haunt
         self.ears = Ears(robot, stage, settings.stt(), settings.language)
-        self.brain = Brain(settings.llm(), system_prompt(settings.language))
+        self.brain = Brain(settings.llm(), system_prompt(settings.language, settings.scares),
+                           safe_line=TEXTS[settings.language]["safe"])
         self.last_reply = 0.0
         self.last_spoken = ""
         self.stop_event = threading.Event()   # replaced by run()
-        self.last_error = ""      # shown on the settings page
+        # Shown on the settings page; each one is cleared only by its own next success
+        self.stt_error = ""
+        self.chat_error = ""
+
+    @property
+    def last_error(self) -> str:
+        return " · ".join(e for e in (self.stt_error, self.chat_error) if e)
 
     def perform(self, effects):
         for kind, arg in effects:
@@ -77,7 +85,7 @@ class Talk:
             return False
         words = {w for w in re.findall(r"\w{4,}", text.lower())}
         spoken = {w for w in re.findall(r"\w{4,}", self.last_spoken.lower())}
-        return bool(words) and len(words & spoken) / len(words) > 0.6
+        return bool(words) and len(words & spoken) / len(words) > ECHO_OVERLAP
 
     def handle(self, text: str):
         if self.is_echo(text):
@@ -87,24 +95,30 @@ class Talk:
         if self.settings.wake_word and not addressed and time.time() - self.last_reply > FOLLOW_UP:
             log.debug("Not addressed, ignored")
             return
-        log.info("Heard: %r", text)
+        # What guests say stays out of the log: the robot's log is readable on the network
+        log.info("Heard someone call (%d words)", len(text.split()))
+        log.debug("Heard: %r", text)
         self.haunt.conversation_active.set()
         try:
+            if getattr(self.stage, "pose", "neutral") == "lurk" or self.haunt.lurking:
+                # Look up first: the photo for the costume guess must show the guests, not the floor
+                self.stage.neutral()
+                self.haunt.lurking = False
+            # Without scares, don't offer the model a [scare] tag
+            self.brain.system_prompt = system_prompt(self.settings.language, self.settings.scares)
             try:
                 reply = self.brain.reply(text, frame_as_jpeg_b64(self.robot))
             except Exception as e:
                 log.error("LLM call failed: %s", e)
-                self.last_error = f"Chat model failed: {describe_error(e)}"
+                self.chat_error = f"Chat model failed: {describe_error(e)}"
                 self.voice(self.voice.texts["error"])
                 return
+            self.chat_error = ""
             if self.stop_event.is_set():
                 return   # settings changed while thinking; a newer conversation has taken over
             spoken, effects = split_effects(reply)
-            log.info("Count: %r %s", spoken, effects)
-            if self.haunt.lurking:
-                # Look up from the lurking pose to answer
-                self.stage.neutral()
-                self.haunt.lurking = False
+            log.info("Count answers (%d words) %s", len(spoken.split()), effects)
+            log.debug("Count: %r", spoken)
             self.last_spoken = spoken
             self.voice(spoken)
             self.perform(effects)
@@ -123,10 +137,10 @@ class Talk:
                     text = self.ears.transcribe(audio)
                 except Exception as e:
                     log.error("Speech-to-text failed: %s", e)
-                    self.last_error = f"Speech-to-text failed: {describe_error(e)}"
+                    self.stt_error = f"Speech-to-text failed: {describe_error(e)}"
                     time.sleep(1)
                     continue
-                self.last_error = ""
+                self.stt_error = ""
                 if text and not stop_event.is_set():
                     self.handle(text)
             except Exception:

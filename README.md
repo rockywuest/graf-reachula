@@ -58,17 +58,21 @@ Everything beyond step 1 is optional. Each level adds to the one before.
    to switch to German, test every sound and move, or trigger a scare by hand.
 
 Tip: put him next to the candy bowl, where guests walk straight towards him: on a table, out of reach of small
-hands, because his head moves. For toddlers, switch scares off on the app page.
+hands, because his head moves. For toddlers, switch scares off on the app page: that stops the automatic
+scares, the BOO button and scares asked for in conversation.
 
 ### 2. Talking — one key (recommended: xAI)
 
 The Count needs a **chat model that can see** (for the camera) and **speech-to-text**. The easiest way is one
 [xAI](https://console.x.ai) key for both:
 
-1. At [console.x.ai](https://console.x.ai): add a few dollars of credit and create an API key.
-2. On the app's page, under **Talking Count**: chat provider `xai`, paste the key; speech-to-text provider `xai`
+1. At [console.x.ai](https://console.x.ai): add a few dollars of credit and create an API key. Set a low
+   spending limit for it.
+2. On the app's page, set the **settings PIN** first (see [Settings PIN](#settings-pin-first)): keys and providers
+   unlock only once a PIN exists.
+3. Under **Talking Count**: chat provider `xai`, paste the key; speech-to-text provider `xai`
    (leave its key empty, it reuses the chat key). Click **Save**.
-3. The status line should say *"The Count is listening"*. Call him by name: *"Count, what's my costume?"*
+4. The status line should say *"The Count is listening"*. Call him by name: *"Count, what's my costume?"*
 
 In our test runs (October 2026) the Count usually answered within a few seconds, and an answer with a photo cost
 about 0.1 cent. Speed depends on your network and the model; check xAI's current prices.
@@ -126,15 +130,28 @@ spoken line).
 
 Models without vision work too; the Count then just can't see.
 
-### Before the party: set a settings PIN
+### Settings PIN first
 
-Guests on your Wi-Fi can open the app's page too. Under **Settings PIN**, set a PIN (at least 6 characters) right
-after installing: from then on, providers, keys and the voice can only be changed with it (sounds, moves and the
-language stay open, so guests can play). Wrong guesses lock the settings for a while. Forgot the PIN? Over SSH on
-the robot: `/venvs/apps_venv/bin/python -m graf_reachula.settings --reset-pin`. The page uses plain HTTP, so only
+Guests on your Wi-Fi can open the app's page too. So providers, keys, the voice, the wake word and switching
+talking on are locked until you set a **settings PIN**, and then need it:
+
+1. Get the one-time setup code from the robot over SSH: `ssh pollen@reachy-mini.local`, then
+   `cat ~/.config/graf_reachula/setup-code.txt` (six digits). It is never logged or shown on the page, so guests
+   can't get it. A new code is made at every app start and after each PIN change.
+2. Enter the setup code and a new PIN (at least 6 characters: letters, digits, ASCII symbols), **Save PIN**.
+
+Sounds, moves, scares and the language stay open, so guests can play, and anyone can switch talking **off**.
+After 5 wrong guesses the settings lock for 30 seconds, growing to at most 5 minutes (for everyone, you too;
+switching talking off still works). Forgot the PIN? Over SSH on
+the robot, as the normal user (not with `sudo`): `/venvs/apps_venv/bin/python -m graf_reachula.settings --reset-pin`.
+It counts at once, no restart needed; then set a new PIN with the setup code. The page uses plain HTTP, so only
 enter the PIN on a network you trust.
 Saved keys are never shown on the page again, keys only ever go to their provider's official address, and a
 stored key is dropped whenever the provider changes.
+
+The PIN protects this app's page only. The robot's own control service (port 8000) can install and start apps
+from your network without a login, and other apps on the robot could read the keys file. Use keys with a low
+spending limit and revoke them after the party.
 
 At a loud party the Count only answers when called by name ("Reachy", "Count", "Graf"), and for 25 seconds
 after his last answer. Ordinary words like "reach" or "count" can wake him too. You can switch this off on the
@@ -145,8 +162,11 @@ app's page.
 - With talking enabled, everything said in the room is sent as audio to your speech-to-text provider, not only
   what is said to the Count; his name only decides whether he answers. A camera photo goes to your chat provider
   only when he answers.
-- Without keys, only the text of his fixed lines leaves the robot, to Microsoft's online Edge voice service.
-- Audio and photos are not saved on the robot. The app log shows what the Count was asked and what he answered.
+- Everything the Count says is sent as text to the voice service: Microsoft's online Edge voices, or ElevenLabs
+  if you chose it. With talking on, his answers can describe guests' costumes.
+- Without keys, only the text of his fixed lines leaves the robot, to the voice service.
+- Audio and photos are not saved on the robot. The app log records that someone spoke and how long the answer
+  was, not what was said (the robot's log can be read on your network).
 - Choosing a provider sends your guests' voices and photos to that company, some of them in the US.
   Tell your guests that a talking robot with a camera is at the party before you switch talking on.
 
@@ -179,7 +199,8 @@ installieren und starten. Auf der App-Seite (`http://reachy-mini.local:8042`) di
 Geräusche und Bewegungen testen. Der Graf lauert, erschreckt mit „BUH!“ und macht Gruselgeräusche.
 
 **2. Sprechen, mit einem Schlüssel (empfohlen: xAI):** Auf [console.x.ai](https://console.x.ai) etwas Guthaben
-aufladen und einen API-Schlüssel anlegen. Auf der App-Seite unter **Talking Count** als Chat-Modell und als
+aufladen und einen API-Schlüssel mit niedrigem Ausgabenlimit anlegen. Auf der App-Seite **zuerst die PIN setzen**
+(siehe unten), erst danach lassen sich Anbieter und Schlüssel eintragen. Dann unter **Talking Count** als Chat-Modell und als
 Spracherkennung `xai` wählen, den Schlüssel einmal beim Chat-Modell eintragen, **Save**. Die Statuszeile zeigt
 dann *„The Count is listening“* (die App-Seite ist englisch: die Felder heißen *Chat model* und *Speech-to-text*).
 In unseren Tests (Oktober 2026) kostete eine Antwort mit Foto etwa 0,1 Cent; aktuelle Preise bitte prüfen. Andere Anbieter (Claude, OpenAI, Gemini,
@@ -193,24 +214,34 @@ Stimmen-ID leer bleibt). Für die Spracherkennung zusätzlich **Speech to Text**
 **Save voice**, dann **Test the voice**. Ohne Stimmen-ID sucht der Graf selbst eine tiefe Stimme aus; für deutsche
 Partys klingt eine deutsche Stimme aus eurer Stimmenbibliothek am besten. Fällt ElevenLabs aus, spricht er
 5 Minuten mit der kostenlosen Stimme weiter, und die App-Seite zeigt den Grund. Die Schlüssel bleiben auf dem Roboter;
-nach dem Speichern zeigt die Seite nur die letzten vier Zeichen.
+nach dem Speichern zeigt die Seite nur noch „••••saved“, nie den Schlüssel selbst.
 
 **Der Graf antwortet nicht?** Beim Namen rufen („Graf, …“). Fehler der Spracherkennung oder des Chat-Modells
 (etwa ein Schlüssel ohne passende Berechtigung) zeigt die Statuszeile auf der App-Seite.
 
 Auf einer lauten Party antwortet der Graf nur, wenn man ihn ruft („Reachy“, „Graf“, „Count“). Auch Wörter wie
 „reach“ oder „count“ können ihn wecken. 
-**Vor der Party eine PIN setzen:** Gäste im WLAN können die App-Seite auch öffnen. Gleich nach der Installation unter
-**Settings PIN** eine PIN mit mindestens 6 Zeichen festlegen; danach lassen sich Anbieter, Schlüssel und Stimme nur noch mit PIN ändern. Gespeicherte Schlüssel zeigt die
-Seite nie wieder an, und sie gehen nur an die offizielle Adresse ihres Anbieters.
+**Zuerst eine PIN setzen:** Gäste im WLAN können die App-Seite auch öffnen. Deshalb sind Anbieter, Schlüssel, Stimme,
+Weckwort und das Einschalten des Sprechens gesperrt, bis eine PIN gesetzt ist, und brauchen danach die PIN. Den
+Einrichtungscode gibt es nur auf dem Roboter: per SSH `cat ~/.config/graf_reachula/setup-code.txt` (sechs Ziffern,
+nie im Log oder auf der Seite). Unter **Settings PIN** Code und neue PIN (mindestens 6 Zeichen, ohne Umlaute) eintragen, **Save PIN**. Geräusche,
+Bewegungen, Erschrecken und Sprache bleiben für alle offen, und Ausschalten des Sprechens geht immer. Nach 5
+Fehlversuchen sperrt die Seite für 30 Sekunden, höchstens 5 Minuten (für alle; Sprechen ausschalten geht trotzdem). PIN vergessen? Per SSH auf dem Roboter als
+normaler Benutzer (ohne `sudo`): `/venvs/apps_venv/bin/python -m graf_reachula.settings --reset-pin`; das wirkt sofort,
+ohne Neustart. Gespeicherte Schlüssel zeigt die Seite nie wieder an, und sie gehen nur an die offizielle Adresse
+ihres Anbieters. Die PIN schützt nur diese App-Seite: Der Steuerdienst des Roboters (Port 8000) installiert und
+startet Apps aus dem WLAN ohne Login, und andere Apps auf dem Roboter könnten die Schlüsseldatei lesen. Deshalb
+Schlüssel mit Ausgabenlimit nehmen und nach der Party widerrufen.
 
 **Tipp:** Neben die Süßigkeitenschale stellen, auf einen Tisch, außer Reichweite kleiner Hände. Für Kleinkinder das
-Erschrecken auf der App-Seite ausschalten.
+Erschrecken auf der App-Seite ausschalten: Das stoppt das automatische Erschrecken, den BOO-Knopf und Erschrecken auf Zuruf.
 
 **Datenschutz:** Mit eingeschalteter Sprachfunktion geht alles, was im Raum gesprochen wird, als Audio an die
 Spracherkennung, nicht nur das, was an den Grafen gerichtet ist. Ein Kamerabild geht nur an das Chat-Modell, wenn er
-antwortet. Ohne Schlüssel gehen nur die Texte seiner festen Sätze an den Online-Sprachdienst von Microsoft. Audio und
-Bilder werden nicht gespeichert; das App-Log zeigt Fragen und Antworten. Der gewählte Anbieter bekommt Stimmen und
+antwortet. Alles, was der Graf sagt, geht als Text an den Sprachdienst (Microsoft Edge oder, wenn gewählt, ElevenLabs);
+seine Antworten können Kostüme der Gäste beschreiben. Ohne Schlüssel gehen nur die Texte seiner festen Sätze an
+den Sprachdienst. Audio und Bilder werden nicht gespeichert; das App-Log hält nur fest, dass jemand gesprochen hat,
+nicht was (das Log des Roboters ist im WLAN lesbar). Der gewählte Anbieter bekommt Stimmen und
 Fotos eurer Gäste; einige Anbieter verarbeiten Daten in den USA. Sagt euren Gästen, dass ein sprechender
 Roboter mit Kamera auf der Party ist, bevor ihr die Sprachfunktion einschaltet.
 

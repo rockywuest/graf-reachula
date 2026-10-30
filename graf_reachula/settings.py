@@ -196,6 +196,18 @@ class Settings:
     def reset_pin(self):
         self.admin_pin_hash = ""
 
+    def reload_pin(self):
+        """Take the PIN hash from the file, so a reset over SSH works while the app runs."""
+        try:
+            data = json.loads(SETTINGS_PATH.read_text())
+        except FileNotFoundError:
+            self.admin_pin_hash = ""       # file deleted by hand: no PIN any more
+            return
+        except (OSError, json.JSONDecodeError):
+            return
+        if isinstance(data, dict) and isinstance(data.get("admin_pin_hash", ""), str):
+            self.admin_pin_hash = data.get("admin_pin_hash", "")
+
     def update(self, changes: dict, from_file: bool = False):
         known = {f.name: f for f in fields(self)}
         if not from_file:
@@ -239,9 +251,13 @@ if __name__ == "__main__":
     import sys
 
     if "--reset-pin" in sys.argv:
+        if os.geteuid() == 0:
+            print("Run this as the robot's normal user, without sudo: root has its own settings file.")
+            sys.exit(1)
         settings = Settings.load()
         settings.reset_pin()
         settings.save()
-        print("Settings PIN removed. Set a new one on the app's page.")
+        print(f"Settings PIN removed from {SETTINGS_PATH}. Reload the app's page and set a new one "
+              "with the code from setup-code.txt next to the settings file.")
     else:
         print("Usage: python -m graf_reachula.settings --reset-pin")

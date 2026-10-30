@@ -1,7 +1,10 @@
 """Count Reachula (Graf Reachula): a spooky, child-friendly Halloween ghost for Reachy Mini."""
 
+import hmac
 import logging
+import os
 import re
+import secrets
 import threading
 import time
 
@@ -10,6 +13,7 @@ from pydantic import BaseModel
 from reachy_mini import ReachyMini, ReachyMiniApp
 
 from graf_reachula.haunt import Haunt
+from graf_reachula import settings as settings_file
 from graf_reachula.settings import Settings
 from graf_reachula.stage import Stage
 from graf_reachula.voice import Voice
@@ -22,14 +26,17 @@ log = logging.getLogger("graf_reachula")
 LOCAL_HOST = re.compile(r"^(localhost|\d{1,3}(\.\d{1,3}){3}|\[[0-9a-f:]+\]|[\w-]+(\.local)?)(:\d+)?$", re.IGNORECASE)
 
 
-# Changing these needs the settings PIN once one is set: they decide where keys,
-# voices and camera photos go
-SENSITIVE = {"talk", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
-             "stt_provider", "stt_model", "stt_api_key", "stt_base_url",
+# Changing these needs the settings PIN: they decide where keys, voices, the
+# microphone's audio and camera photos go. Until a PIN exists they can't be changed
+# from the page at all; the first PIN needs the setup code from the robot.
+SENSITIVE = {"talk", "wake_word", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
+             "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "voice_en", "voice_de",
              "tts_provider", "elevenlabs_api_key", "elevenlabs_voice", "elevenlabs_model", "new_pin"}
 MAX_QUEUE = 5
 MIN_PIN_LENGTH = 6
 PIN_FREE_TRIES = 5        # then a growing lockout against guessing
+MAX_LOCKOUT = 300         # seconds; the owner must never be locked out for long
+PIN_CHARS = re.compile(r"^[\x21-\x7e]+$")   # printable ASCII: it travels in an HTTP header
 TALK_RELATED = {"talk", "language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
                 "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "elevenlabs_api_key"}
 
@@ -53,6 +60,26 @@ class SettingsUpdate(BaseModel):
     changes: dict
 
 
+def new_setup_code() -> str:
+    """A fresh one-time code in an owner-only file next to the settings."""
+    code = f"{secrets.randbelow(10 ** 6):06d}"
+    path = settings_file.SETTINGS_PATH.with_name("setup-code.txt")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)               # also when the file existed with other rights
+        with os.fdopen(fd, "w") as f:
+            f.write(code + "\n")
+        log.info("Settings setup code written to %s", path)
+    except OSError as e:
+        log.warning("Could not write the setup code file: %s", e)
+    return code
+
+
+def switches_off(value) -> bool:
+    return value is False or str(value).strip().lower() in ("false", "0", "off", "no")
+
+
 class GrafReachula(ReachyMiniApp):
     custom_app_url: str | None = "http://0.0.0.0:8042"
     request_media_backend: str | None = None
@@ -69,6 +96,11 @@ class GrafReachula(ReachyMiniApp):
         talk_lock = threading.Lock()
         current = {"talk": None}
         pin_guard = {"failures": 0, "locked_until": 0.0}
+        pin_lock = threading.Lock()            # one PIN check at a time: no parallel guessing
+        # Proves the first PIN is set by the robot's owner: only readable on the robot itself
+        # (never logged, never spoken: the log and the room are open to guests)
+        setup = {"code": new_setup_code()}
+        self.setup = setup
         requests: list[tuple[str, str]] = []   # effects requested from the web page
 
         def restart_talking():
@@ -114,31 +146,53 @@ class GrafReachula(ReachyMiniApp):
         @self.settings_app.get("/api/settings")
         def get_settings(request: Request):
             check_host(request)
+            settings.reload_pin()
             return {**settings.public(), **live_status()}
+
+        def wrong_guess(detail: str):
+            pin_guard["failures"] += 1
+            if pin_guard["failures"] >= PIN_FREE_TRIES:
+                lockout = min(MAX_LOCKOUT, 30 * 2 ** (pin_guard["failures"] - PIN_FREE_TRIES))
+                pin_guard["locked_until"] = time.time() + lockout
+            raise HTTPException(status_code=403, detail=detail)
+
+        def check_pin_rules(changes: dict, request: Request):
+            """Raises unless this request may make these changes. Call with pin_lock held."""
+            sensitive = SENSITIVE & set(changes)
+            if "talk" in sensitive and switches_off(changes["talk"]):
+                sensitive.discard("talk")      # anyone may silence the Count, e.g. during a lockout
+            if not sensitive:
+                return
+            if time.time() < pin_guard["locked_until"]:
+                wait = int(pin_guard["locked_until"] - time.time()) + 1
+                raise HTTPException(status_code=429, detail=f"Too many wrong guesses, try again in {wait} s")
+            if settings.admin_pin_hash:
+                if not settings.check_pin(request.headers.get("x-graf-pin")):
+                    wrong_guess("Settings PIN required for: " + ", ".join(sorted(sensitive)))
+            elif sensitive != {"new_pin"}:
+                raise HTTPException(status_code=403, detail="Set a settings PIN first (section 🔒 Settings PIN)")
+            elif not hmac.compare_digest(request.headers.get("x-graf-setup", "").strip().encode(), setup["code"].encode()):
+                wrong_guess("Enter the setup code from setup-code.txt on the robot (see the README)")
+            pin_guard["failures"] = 0
 
         @self.settings_app.post("/api/settings")
         def update_settings(update: SettingsUpdate, request: Request):
             check_write(request)
-            sensitive = SENSITIVE & set(update.changes)
-            if sensitive:
-                if time.time() < pin_guard["locked_until"]:
-                    wait = int(pin_guard["locked_until"] - time.time()) + 1
-                    raise HTTPException(status_code=429, detail=f"Too many wrong PINs, try again in {wait} s")
-                if not settings.check_pin(request.headers.get("x-graf-pin")):
-                    pin_guard["failures"] += 1
-                    if pin_guard["failures"] >= PIN_FREE_TRIES:
-                        pin_guard["locked_until"] = time.time() + 30 * 2 ** (pin_guard["failures"] - PIN_FREE_TRIES)
-                    raise HTTPException(status_code=403, detail="Settings PIN required for: " + ", ".join(sorted(sensitive)))
-                pin_guard["failures"] = 0
-            new_pin = update.changes.pop("new_pin", None)
-            if isinstance(new_pin, str) and new_pin.strip():
-                if len(new_pin.strip()) < MIN_PIN_LENGTH:
-                    raise HTTPException(status_code=400, detail=f"The PIN needs at least {MIN_PIN_LENGTH} characters")
-                settings.set_pin(new_pin.strip())
-            before = settings.public()
-            settings.update(update.changes)
-            settings.save()
-            after = settings.public()
+            with pin_lock:
+                settings.reload_pin()      # a PIN reset over SSH counts right away
+                check_pin_rules(update.changes, request)
+                new_pin = update.changes.pop("new_pin", None)
+                if isinstance(new_pin, str) and new_pin.strip():
+                    if len(new_pin.strip()) < MIN_PIN_LENGTH:
+                        raise HTTPException(status_code=400, detail=f"The PIN needs at least {MIN_PIN_LENGTH} characters")
+                    if not PIN_CHARS.match(new_pin.strip()):
+                        raise HTTPException(status_code=400, detail="Use letters, digits and ASCII symbols only, no spaces")
+                    settings.set_pin(new_pin.strip())
+                    setup["code"] = new_setup_code()    # one use only, e.g. after a PIN reset
+                before = settings.public()
+                settings.update(update.changes)
+                settings.save()
+                after = settings.public()
             # The page sends every field on Save; only restart for what really changed
             changed = {name for name in TALK_RELATED if before.get(name) != after.get(name)}
             changed |= {name for name in ("llm_api_key", "stt_api_key", "elevenlabs_api_key")

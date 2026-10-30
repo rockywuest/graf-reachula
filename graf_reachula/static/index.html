@@ -38,10 +38,16 @@
 
         <section>
             <h2>🔒 Settings PIN</h2>
-            <p class="hint">Guests on your Wi-Fi can open this page too. Set a PIN (at least 6 characters) first thing,
-                and providers, keys and the voice can only be changed with it. Sounds, moves and language stay open
-                to everyone. Forgot it? See the README for the reset command.</p>
+            <p class="hint">Guests on your Wi-Fi can open this page too. Set a PIN (at least 6 characters) first thing:
+                providers, keys, the voice, the wake word and switching talking on need it. Sounds, moves, scares
+                and language stay open to everyone, and anyone can switch talking off. Forgot it? See the README
+                for the reset command.</p>
             <p id="pin-state" class="status-line"></p>
+            <div id="setup" hidden>
+                <p class="hint">The first PIN needs the setup code, so a guest can't set one before you do. It is on the
+                    robot only: over SSH, <code>cat ~/.config/graf_reachula/setup-code.txt</code> (see the README).</p>
+                <label>Setup code <input id="setup_code" inputmode="numeric" autocomplete="off" placeholder="6 digits"></label>
+            </div>
             <label>Your PIN <input id="pin" type="password" autocomplete="current-password" placeholder="needed for locked changes"></label>
             <label>New PIN <input id="new_pin" type="password" autocomplete="new-password" placeholder="set or change the PIN"></label>
             <button id="save-pin">Save PIN</button>

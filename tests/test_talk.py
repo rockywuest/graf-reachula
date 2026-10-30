@@ -1,4 +1,5 @@
 import threading
+import time
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -66,7 +67,7 @@ def make_talk(robot, stage, wake_word=True):
     t.brain.reply.return_value = "Hello [sound:ghost] friend"
     t.last_reply = 0.0
     t.last_spoken = ""
-    t.last_error = ""
+    t.stt_error = t.chat_error = ""
     t.stop_event = threading.Event()
     return t
 
@@ -159,3 +160,41 @@ def test_system_prompt_includes_language_rule_and_tags():
     assert "[sound:NAME]" in en and "[scare]" in en
     assert TEXTS["de"]["persona"] in de
     assert "{language_rule}" not in en
+
+
+def test_a_guest_answering_his_offer_is_not_taken_for_an_echo(robot, stage):
+    t = make_talk(robot, stage)
+    t.last_spoken = "Shall I tell you a ghost story, or guess your costume?"
+    t.last_reply = time.time()
+    assert not t.is_echo("Yes! Tell me a ghost story, Count!")
+    assert t.is_echo("Shall I tell you a ghost story or guess your costume")
+
+
+def test_looks_up_before_taking_the_photo(robot, stage):
+    """The costume guess needs the guests in the picture, not the floor."""
+    t = make_talk(robot, stage)
+    stage.lurk()
+    t.haunt.lurking = False          # the haunt loop may already have cleared its flag
+    seen = []
+    t.brain.reply.side_effect = lambda text, photo: seen.append(stage.pose) or "Boo"
+    t.handle("Reachy, what am I?")
+    assert seen == ["neutral"]
+
+
+def test_scares_off_removes_the_scare_tag_from_the_prompt(robot, stage):
+    t = make_talk(robot, stage)
+    t.settings.scares = False
+    t.handle("Reachy, scare me!")
+    assert "[scare] only when" not in t.brain.system_prompt
+    assert "never use [scare]" in t.brain.system_prompt
+
+
+def test_chat_error_stays_until_the_chat_works_again(robot, stage):
+    t = make_talk(robot, stage)
+    t.brain.reply.side_effect = RuntimeError("down")
+    t.handle("Reachy?")
+    t.stt_error = ""                 # a later successful transcription
+    assert "Chat model failed" in t.last_error
+    t.brain.reply.side_effect = None
+    t.handle("Reachy?")
+    assert t.last_error == ""

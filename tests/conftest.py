@@ -82,17 +82,20 @@ class FakeStage:
         self.last_performance = time.time() - 1000
         self.moves = {}
         self.calls = []
+        self.pose = "neutral"
 
     def free(self):
         return not self.speaking
 
     def lurk(self):
+        self.pose = "lurk"
         self.calls.append("lurk")
 
     def jump(self):
         self.calls.append("jump")
 
     def neutral(self, duration=1.0):
+        self.pose = "neutral"
         self.calls.append("neutral")
 
     def play_sound(self, name):

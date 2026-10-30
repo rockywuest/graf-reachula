@@ -5,17 +5,50 @@ OpenRouter, Mistral, Groq, Ollama, ...) through the OpenAI-compatible chat API.
 """
 
 import logging
+import re
 
 log = logging.getLogger(__name__)
 
 MAX_HISTORY = 12   # messages kept as context (6 exchanges)
+MAX_REPLY_TOKENS = 200  # spoken replies are short; a cap also keeps the model fast
+MAX_REPLY_CHARS = 320   # two spoken sentences; longer replies outlast the voice service's timeout
+
+# Reasoning models may put their thinking into the reply text
+THINKING = re.compile(r"<think>.*?(</think>|$)", re.IGNORECASE | re.DOTALL)
+# Last line of defence for a children's party, on top of the system prompt:
+# a reply with any of these is replaced by a fixed harmless line
+UNSAFE = re.compile(
+    r"\b(sex\w*|porn\w*|naked|nackt\w*|nude|suicid\w*|selbstmord\w*|kill yourself|"
+    r"bring dich um|umbringen|drugs?|drogen|cocaine|kokain|nazi\w*|hitler|fuck\w*|shit|schei(ß|ss)\w*)\b",
+    re.IGNORECASE,
+)
+
+
+def tidy(answer: str, safe_line: str) -> str:
+    """Strip thinking, refuse unsafe content, keep the reply short enough to speak."""
+    if not (answer or "").strip():
+        return ""
+    answer = THINKING.sub(" ", answer).strip()
+    if not answer:
+        return safe_line        # only thinking, no reply (e.g. cut off mid-thought)
+    if UNSAFE.search(answer):
+        log.warning("Unsafe reply replaced by the safe line")
+        return safe_line
+    if len(answer) > MAX_REPLY_CHARS:
+        # Cut after the last full sentence that fits; tags inside it survive
+        cut = answer[:MAX_REPLY_CHARS]
+        end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+        answer = cut[:end + 1] if end > 40 else cut.rsplit(" ", 1)[0] + "…"
+        answer = re.sub(r"\[[^\]]*$", "", answer).strip()   # no half effect tag
+    return answer
 
 
 class Brain:
-    def __init__(self, llm: dict, system_prompt: str):
+    def __init__(self, llm: dict, system_prompt: str, safe_line: str = ""):
         self.provider = llm["provider"]
         self.model = llm["model"]
         self.system_prompt = system_prompt
+        self.safe_line = safe_line
         self.history: list[tuple[str, str]] = []   # (role, text); photos are not kept
         self.vision = True
         self.photo_rejections = 0
@@ -29,6 +62,9 @@ class Brain:
             self.effort = True
         else:
             import openai
+
+            # OpenAI's reasoning models count thinking against the cap and would return nothing
+            self.cap_tokens = self.provider != "openai"
 
             self.client = openai.OpenAI(api_key=llm["api_key"], base_url=llm["base_url"] or None,
                                         timeout=30.0, max_retries=1)
@@ -51,6 +87,7 @@ class Brain:
         else:
             if image is not None:
                 self.photo_rejections = 0
+        answer = tidy(answer, self.safe_line)
         if answer:
             # An empty assistant turn would make later Anthropic calls fail
             self.history += [("user", text), ("assistant", answer)]
@@ -68,7 +105,7 @@ class Brain:
             content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image}})
         content.append({"type": "text", "text": text})
         messages = [{"role": r, "content": t} for r, t in self.history] + [{"role": "user", "content": content}]
-        kwargs = {"model": self.model, "max_tokens": 1024, "system": self.system_prompt, "messages": messages}
+        kwargs = {"model": self.model, "max_tokens": MAX_REPLY_TOKENS, "system": self.system_prompt, "messages": messages}
         if self.effort:
             # Low effort keeps spoken replies quick; models without the setting reject it
             kwargs["output_config"] = {"effort": "low"}
@@ -93,5 +130,16 @@ class Brain:
         messages = ([{"role": "system", "content": self.system_prompt}]
                     + [{"role": r, "content": t} for r, t in self.history]
                     + [{"role": "user", "content": content}])
-        response = self.client.chat.completions.create(model=self.model, messages=messages)
+        kwargs = {"model": self.model, "messages": messages}
+        if self.cap_tokens:
+            kwargs["max_tokens"] = MAX_REPLY_TOKENS
+        try:
+            response = self.client.chat.completions.create(**kwargs)
+        except Exception as e:
+            # Some models (OpenAI's reasoning models) reject max_tokens; tidy() still cuts the text
+            if not self.cap_tokens or "max_tokens" not in str(e):
+                raise
+            self.cap_tokens = False
+            kwargs.pop("max_tokens")
+            response = self.client.chat.completions.create(**kwargs)
         return (response.choices[0].message.content or "").strip()

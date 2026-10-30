@@ -159,5 +159,14 @@ def test_jump_scare_jumps_before_the_line_is_rendered():
     say = SimpleNamespace(texts={"after_scare": ["Gotcha!"]},
                           render=lambda text: order.append("render") or "audio",
                           play=lambda audio: order.append("play"))
-    Haunt(robot=None, stage=stage, settings=None, say=say).jump_scare()
+    Haunt(robot=None, stage=stage, settings=SimpleNamespace(scares=True), say=say).jump_scare()
     assert order == ["jump", "boo", "render", "play", "neutral"]
+
+
+def test_scares_off_also_stops_requested_scares(stage):
+    """Parents switch scares off for toddlers: no BOO from the chat model or the page either."""
+    from types import SimpleNamespace
+    from graf_reachula.haunt import Haunt
+
+    Haunt(robot=None, stage=stage, settings=SimpleNamespace(scares=False)).jump_scare()
+    assert stage.calls == []

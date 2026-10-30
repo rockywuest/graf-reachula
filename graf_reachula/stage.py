@@ -42,6 +42,7 @@ class Stage:
         self.recording = False          # the ears are using the microphone
         self.ears = None                # the Ears that currently own the microphone
         self.last_performance = time.time()
+        self.pose = "neutral"           # "lurk" while the head hangs down waiting for a victim
         self.sounds = sounds.build_library()
         self.moves: dict = {}
         self.library = None
@@ -106,6 +107,7 @@ class Stage:
         with self.lock:
             self.speaking = True
             try:
+                self.pose = "move"
                 self.robot.play_move(move, initial_goto_duration=0.6, sound=True)
             finally:
                 self._done()
@@ -126,18 +128,21 @@ class Stage:
 
     def neutral(self, duration: float = 1.0):
         with self.lock:
+            self.pose = "neutral"
             self.robot.goto_target(head=create_head_pose(), antennas=np.deg2rad([0, 0]),
                                    duration=duration, method="minjerk")
 
     def lurk(self):
         """Head down, antennas flat: waiting perfectly still for a victim."""
         with self.lock:
+            self.pose = "lurk"
             self.robot.goto_target(head=create_head_pose(pitch=18, degrees=True), antennas=np.deg2rad([5, 5]),
                                    duration=2.0, method="minjerk")
             time.sleep(2.2)
 
     def jump(self):
         """The scare: head up and antennas out, as fast as the motors allow."""
+        self.pose = "jump"
         self.robot.goto_target(head=create_head_pose(pitch=-15, degrees=True),
                                antennas=np.deg2rad([90, 90]), duration=0.25, method="linear")
 

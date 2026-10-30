@@ -11,16 +11,20 @@ function pin() {
     return $("pin").value || "";
 }
 
+// HTTP headers carry only plain ASCII; anything else would break every request
+const ascii = (value) => (/^[\x20-\x7e]*$/.test(value) ? value : "");
+
 // The web server starts before the app's routes exist; retry until they answer
 async function api(path, options = {}, tries = 30) {
-    options.headers = { ...(options.headers || {}), "X-Graf-Reachula": "1", "X-Graf-Pin": pin() };
+    options.headers = { ...(options.headers || {}), "X-Graf-Reachula": "1",
+        "X-Graf-Pin": ascii(pin()), "X-Graf-Setup": ascii($("setup_code").value.trim()) };
     for (let i = 0; i < tries; i++) {
         let resp = null;
         try {
             resp = await fetch(path, options);
         } catch (e) { /* not ready yet */ }
         if (resp && resp.ok) return await resp.json();
-        if (resp && (resp.status === 403 || resp.status === 429)) {
+        if (resp && (resp.status === 400 || resp.status === 403 || resp.status === 429)) {
             // A refusal (wrong PIN, busy) won't change by retrying
             const body = await resp.json().catch(() => ({}));
             throw new Error(body.detail || "Refused");
@@ -43,7 +47,8 @@ function show(settings) {
     for (const f of [...FIELDS, ...VOICE_FIELDS]) $(f).value = settings[f] ?? "";
     $("pin-state").textContent = settings.pin_set
         ? "🔒 Locked: enter the PIN to change providers, keys or the voice."
-        : "🔓 No PIN set: anyone on this network can change providers and keys. Set one before the party.";
+        : "🔓 No PIN yet: set one first. Providers, keys and the voice unlock once a PIN exists.";
+    $("setup").hidden = !!settings.pin_set;
     showStatus(settings);
 }
 
@@ -102,7 +107,8 @@ $("save-voice").addEventListener("click", () => {
 });
 $("save-pin").addEventListener("click", () => {
     const value = $("new_pin").value.trim();
-    if (value) save({ new_pin: value }).then((ok) => { if (ok) { $("pin").value = value; $("new_pin").value = ""; } });
+    if (value && !ascii(value)) { $("status").textContent = "Use letters, digits and ASCII symbols only."; return; }
+    if (value) save({ new_pin: value }).then((ok) => { if (ok) { $("pin").value = value; $("new_pin").value = ""; $("setup_code").value = ""; } });
 });
 $("save").addEventListener("click", () => {
     const changes = {};
