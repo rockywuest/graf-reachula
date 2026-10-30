@@ -37,55 +37,83 @@ Spooky, but child-friendly: a startle now and then, never gore, nothing mean. Mo
 | 🧛 **Theatrical vampire voice** with your own ElevenLabs key (optional, falls back to Edge) | | ✅ |
 | 🗣️ **Talking Count** — answers when called by name, sees costumes, tells stories, riddles, fortunes | | ✅ |
 
-## Install
+## Setup — pick your level
 
-1. Open **Reachy Mini Control** → *Applications* → *Discover Apps* and install **Count Reachula**.
-2. Start it. The Count introduces himself and starts haunting.
+Everything beyond step 1 is optional. Each level adds to the one before.
+
+### 1. Haunting — no key, nothing to set up
+
+1. Open **Reachy Mini Control** → *Applications* → *Discover Apps*, install **Count Reachula** and start it.
+2. The Count introduces himself and starts haunting: lurking, BOO!, spooky sounds and moves.
 3. Open the app's page (`http://reachy-mini.local:8042` on a Wireless, `http://localhost:8042` on a Lite)
-   to switch the language, test sounds and moves, or add keys.
+   to switch to German, test every sound and move, or trigger a scare by hand.
 
 Tip: put him next to the candy bowl, where guests walk straight towards him: on a table, out of reach of small
 hands, because his head moves. For toddlers, switch scares off on the app page.
 
-## Make him talk (optional): bring your own AI
+### 2. Talking — one key (recommended: xAI)
 
-The Count needs two things to talk: a **chat model that can see** (for the camera) and **speech-to-text**.
-**One xAI key covers both**: in our tests the Count heard a question in 0.4 s and answered with a look at
-the camera in about 1 s.
-Enter the keys on the app's page; they are stored only on your robot (`~/.config/graf_reachula/settings.json`,
-readable only by its owner). You can also set them as environment variables.
+The Count needs a **chat model that can see** (for the camera) and **speech-to-text**. The easiest way is one
+[xAI](https://console.x.ai) key for both:
 
-| Chat provider | Default model | Key variable |
-|---|---|---|
-| Anthropic (Claude) | `claude-opus-5-5` | `ANTHROPIC_API_KEY` |
-| OpenAI | `gpt-5.6-terra` | `OPENAI_API_KEY` |
-| Google Gemini | `gemini-3.5-flash-lite` | `GEMINI_API_KEY` |
-| xAI (Grok) — fastest in our tests | `grok-4.20-0309-non-reasoning` | `XAI_API_KEY` |
-| OpenRouter | `anthropic/claude-opus-5.5` | `OPENROUTER_API_KEY` |
-| Mistral | `mistral-medium-latest` | `MISTRAL_API_KEY` |
-| Groq ⚠️ preview model, may be retired at short notice | `qwen/qwen3.8-27b` | `GROQ_API_KEY` |
-| Ollama (local) | `gemma3` | — |
-| Custom (any OpenAI-compatible API) | your choice | — |
+1. At [console.x.ai](https://console.x.ai): add a few dollars of credit and create an API key.
+2. On the app's page, under **Talking Count**: chat provider `xai`, paste the key; speech-to-text provider `xai`
+   (leave its key empty, it reuses the chat key). Click **Save**.
+3. The status line should say *"The Count is listening"*. Call him by name: *"Count, what's my costume?"*
+
+In our tests he heard a question in 0.4 s and answered with a look at the camera in about 1 s.
+In our test an answer with a photo cost about 0.1 cent; speech-to-text costs a few cents per hour of talking
+(check xAI's current prices).
+
+Any other combination works too. Keys can also be set as environment variables:
+
+| Chat provider | Default model | Key variable | Get a key |
+|---|---|---|---|
+| xAI (Grok) — fastest in our tests | `grok-4.20-0309-non-reasoning` | `XAI_API_KEY` | [console.x.ai](https://console.x.ai) |
+| Anthropic (Claude) | `claude-opus-5-5` | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) |
+| OpenAI | `gpt-5.6-terra` | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
+| Google Gemini | `gemini-3.5-flash-lite` | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/apikey) |
+| OpenRouter | `anthropic/claude-opus-5.5` | `OPENROUTER_API_KEY` | [openrouter.ai](https://openrouter.ai/keys) |
+| Mistral | `mistral-medium-latest` | `MISTRAL_API_KEY` | [console.mistral.ai](https://console.mistral.ai) |
+| Groq ⚠️ preview model, may be retired at short notice | `qwen/qwen3.8-27b` | `GROQ_API_KEY` | [console.groq.com](https://console.groq.com/keys) |
+| Ollama (local, on your network) | `gemma3` | — | — |
+| Custom (any OpenAI-compatible API) | your choice | — | — |
 
 | Speech-to-text | Default model | Key variable |
 |---|---|---|
 | xAI (Grok) — knows the Count's names | — | `XAI_API_KEY` |
-| OpenAI | `gpt-transcribe` | `OPENAI_API_KEY` |
-| ElevenLabs (Scribe, knows the Count's names) | `scribe_v2` | `ELEVENLABS_API_KEY` |
+| OpenAI | `gpt-transcribe` (falls back to `gpt-4o-mini-transcribe` if rejected) | `OPENAI_API_KEY` |
+| ElevenLabs Scribe — knows the Count's names | `scribe_v2` | `ELEVENLABS_API_KEY` |
 | Groq (fast, generous free tier) | `whisper-large-v3-turbo` | `GROQ_API_KEY` |
 | Custom (OpenAI-compatible `/audio/transcriptions`) | your choice | — |
 
-### A better voice (optional): ElevenLabs
+Anthropic has no speech-to-text, so with Claude you need a second key for listening (for example xAI or Groq).
+
+### 3. A real vampire voice — ElevenLabs (optional)
 
 Out of the box the Count speaks with a free Microsoft Edge voice, made deeper and slower. With your own
-[ElevenLabs](https://elevenlabs.io) key (on the app's page, or `ELEVENLABS_API_KEY`) he gets a theatrical voice.
-Leave the voice ID empty and the Count picks a deep narrator voice from your account (ElevenLabs changes its
-default voices from time to time), or paste any voice ID you like. The default model is `eleven_flash_v2_5`
-(fast, English and German). Repeated lines are cached, and if ElevenLabs fails he falls back to the free voice.
-The same key can also be used for speech-to-text (Scribe).
+[ElevenLabs](https://elevenlabs.io) key he gets a theatrical voice:
 
-Every model can be changed on the app's page; providers rename models often, so check their model list if a
-default stops working. Models without vision work too; the Count then just can't see.
+1. At [elevenlabs.io → API keys](https://elevenlabs.io/app/settings/api-keys), create a key with the permissions
+   **Text to Speech** and **Voices: read**. Add **Speech to Text** if ElevenLabs should also listen (Scribe).
+2. On the app's page, under **Voice**: service `ElevenLabs`, paste the key, **Save voice**, then **Test the voice**.
+3. Voice ID: leave it empty and the Count picks a deep narrator voice from your account, or paste any voice ID
+   from your [voice library](https://elevenlabs.io/app/voice-library). For German parties a German voice sounds best.
+
+The default model is `eleven_flash_v2_5` (fast, English and German). Every line uses your ElevenLabs characters;
+repeated lines (intro, scare lines) are cached. If ElevenLabs fails (no credits, missing permission, offline), the
+Count switches to the free voice for 5 minutes and the page shows why under *Current voice*.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| The Count doesn't answer | Call him by name ("Count, …", "Reachy, …"). Check the status line on the app's page. |
+| *"Add a chat key and a speech-to-text key"* | Talking needs both. With xAI, one key covers both. |
+| *Current voice: … missing the permission …* | Edit the ElevenLabs key's permissions (see step 3), then **Save voice** again. |
+| A default model stopped working | Providers rename models often: type a current model name in the *Model* field. |
+
+Models without vision work too; the Count then just can't see.
 
 The settings page has no password: use it only on a network you trust. Keys are never shown again once saved,
 and a stored key is dropped whenever the provider or base URL changes.
@@ -126,16 +154,25 @@ Zukunft voraus und erzählt Gruselgeschichten in drei Sätzen.
 
 Gruselig, aber kindgerecht: ab und zu ein kleiner Schreck, nie Blut, nichts Gemeines, meist nur Gekicher.
 
-**So geht's:** In Reachy Mini Control unter *Applications → Discover Apps* **Count Reachula** installieren
-und starten. Auf der App-Seite (`http://reachy-mini.local:8042`) die Sprache auf **Deutsch** stellen,
-Geräusche und Bewegungen testen und optional Schlüssel eintragen.
+### Einrichtung in drei Stufen (alles ab Stufe 1 ist optional)
 
-**Ohne Schlüssel:** Erschrecken, Gruselgeräusche, Gruselbewegungen, Begrüßung mit Vampirstimme.
-**Mit Schlüssel:** Der Graf spricht. Er braucht ein Chat-Modell mit Bildverständnis (Claude, OpenAI, xAI/Grok,
-Gemini, OpenRouter, Mistral, Groq, Ollama oder jede OpenAI-kompatible Schnittstelle) und eine Spracherkennung
-(xAI, OpenAI, ElevenLabs, Groq oder kompatibel). Ein einziger xAI-Schlüssel reicht für beides.
-**Stimme:** Mit einem eigenen ElevenLabs-Schlüssel bekommt der Graf eine echte Vampirstimme; ohne Schlüssel spricht
-er mit der kostenlosen Microsoft-Edge-Stimme. Die Schlüssel bleiben auf dem Roboter.
+**1. Spuken, ohne Schlüssel:** In Reachy Mini Control unter *Applications → Discover Apps* **Count Reachula**
+installieren und starten. Auf der App-Seite (`http://reachy-mini.local:8042`) die Sprache auf **Deutsch** stellen,
+Geräusche und Bewegungen testen. Der Graf lauert, erschreckt mit „BUH!“ und macht Gruselgeräusche.
+
+**2. Sprechen, mit einem Schlüssel (empfohlen: xAI):** Auf [console.x.ai](https://console.x.ai) etwas Guthaben
+aufladen und einen API-Schlüssel anlegen. Auf der App-Seite unter **Talking Count** als Chat-Modell und als
+Spracherkennung `xai` wählen, den Schlüssel einmal beim Chat-Modell eintragen, **Save**. Die Statuszeile zeigt
+dann *„The Count is listening“*. Eine Antwort kostet etwa 0,1–0,2 Cent. Andere Anbieter (Claude, OpenAI, Gemini,
+OpenRouter, Mistral, Groq, Ollama, ElevenLabs Scribe) stehen in den Tabellen oben; Claude braucht für die
+Spracherkennung einen zweiten Schlüssel.
+
+**3. Echte Vampirstimme mit ElevenLabs (optional):** Unter [elevenlabs.io → API keys](https://elevenlabs.io/app/settings/api-keys)
+einen Schlüssel mit den Berechtigungen **Text to Speech** und **Voices: read** anlegen (für die Spracherkennung
+zusätzlich **Speech to Text**). Auf der App-Seite unter **Voice** `ElevenLabs` wählen, Schlüssel eintragen,
+**Save voice**, dann **Test the voice**. Ohne Stimmen-ID sucht der Graf selbst eine tiefe Stimme aus; für deutsche
+Partys klingt eine deutsche Stimme aus eurer Stimmenbibliothek am besten. Fällt ElevenLabs aus, spricht er
+5 Minuten mit der kostenlosen Stimme weiter, und die App-Seite zeigt den Grund. Die Schlüssel bleiben auf dem Roboter.
 
 Auf einer lauten Party antwortet der Graf nur, wenn man ihn ruft („Reachy“, „Graf“, „Count“). Auch Wörter wie
 „reach“ oder „count“ können ihn wecken. Die Einstellungsseite hat kein Passwort: nur in vertrauenswürdigen Netzen nutzen.

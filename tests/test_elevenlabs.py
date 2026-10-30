@@ -120,3 +120,22 @@ def test_gpt_transcribe_rejection_falls_back_to_previous_model():
     assert e.transcribe(np.zeros(16000, np.float32) + 0.1) == "Hello Count"
     assert e.model == "gpt-4o-mini-transcribe"
     assert e.client.audio.transcriptions.create.call_args.kwargs["language"] == "en"
+
+
+def test_voice_status_explains_why_elevenlabs_is_not_used(monkeypatch):
+    monkeypatch.setattr(voice_mod, "synthesize", lambda text, v: (np.zeros(10, np.float32), 24000))
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    v = Voice(SimpleNamespace(play_audio=lambda *a: None), Settings(tts_provider="elevenlabs"))
+    v("Hello")
+    assert "no key" in v.status
+
+    class Denied(Exception):
+        response = httpx.Response(401, json={"detail": {"message": "missing the permission text_to_speech"}})
+
+    s = Settings(tts_provider="elevenlabs", elevenlabs_api_key="el-key", elevenlabs_voice="V")
+    monkeypatch.setattr(voice_mod, "synthesize_elevenlabs", MagicMock(side_effect=Denied()))
+    v = Voice(SimpleNamespace(play_audio=lambda *a: None), s)
+    v("Hello")
+    assert "missing the permission text_to_speech" in v.status
+    v.reset()
+    assert v.eleven_paused_until == 0.0

@@ -66,6 +66,20 @@ def synthesize_elevenlabs(text: str, api_key: str, voice: str, model: str, langu
     return (pcm.astype(np.float32) / 32768.0), ELEVENLABS_RATE
 
 
+def describe_error(e: Exception) -> str:
+    """A short, helpful reason for the settings page (e.g. a missing key permission)."""
+    response = getattr(e, "response", None)
+    if response is not None:
+        try:
+            detail = response.json().get("detail", {})
+            if isinstance(detail, dict) and detail.get("message"):
+                return detail["message"]
+        except Exception:
+            pass
+        return f"HTTP {response.status_code}"
+    return str(e)[:160]
+
+
 def pick_elevenlabs_voice(client, api_key: str) -> str:
     """A deep narrator voice from the account's voices (default voice IDs change over time)."""
     response = client.get(f"{ELEVENLABS_URL}/voices", headers={"xi-api-key": api_key})
@@ -97,6 +111,7 @@ class Voice:
         self.picked_voice: dict[str, str] = {}   # api key -> voice ID chosen for it
         self.lock = threading.Lock()              # the haunt, talk and main threads all speak
         self.eleven_paused_until = 0.0
+        self.status = ""                          # shown on the settings page
 
     @property
     def texts(self) -> dict:
@@ -132,12 +147,23 @@ class Voice:
         tts = self.settings.tts()
         if tts["provider"] == "elevenlabs" and time.time() >= self.eleven_paused_until:
             try:
-                return self._elevenlabs(text, tts)
+                result = self._elevenlabs(text, tts)
+                self.status = "ElevenLabs"
+                return result
             except Exception as e:
                 # Out of credits, bad key or offline: the party goes on with the free voice
                 log.warning("ElevenLabs failed (%s); using the Edge voice for %d minutes", e, COOLDOWN // 60)
                 self.eleven_paused_until = time.time() + COOLDOWN
+                self.status = f"Free Edge voice for {COOLDOWN // 60} min, ElevenLabs failed: {describe_error(e)}"
+        elif tts["provider"] == "edge":
+            missing_key = self.settings.tts_provider == "elevenlabs"
+            self.status = "Free Edge voice" + (" (ElevenLabs chosen, but no key yet)" if missing_key else "")
         return synthesize(text, tts["edge_voice"])
+
+    def reset(self):
+        """Settings changed: try ElevenLabs again right away."""
+        self.eleven_paused_until = 0.0
+        self.picked_voice.clear()
 
     def play(self, rendered):
         if rendered is not None:

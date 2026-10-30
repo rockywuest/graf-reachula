@@ -37,9 +37,14 @@
         </section>
 
         <section>
-            <h2>🎙️ Voice</h2>
+            <h2>🎙️ Voice <span class="hint">(optional upgrade)</span></h2>
             <p class="hint">Free Microsoft Edge voice by default. With your own ElevenLabs key the Count gets a
-                real theatrical vampire voice; if ElevenLabs fails, he falls back to the free voice.</p>
+                real theatrical vampire voice; if ElevenLabs fails, he falls back to the free voice.
+                Create the key at <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">elevenlabs.io → API keys</a>
+                and give it the permissions <b>Text to Speech</b> and <b>Voices: read</b>
+                (plus <b>Speech to Text</b> if you also want ElevenLabs to listen).
+                Leave the voice ID empty to let the Count pick a deep voice, or paste one from your voice library.</p>
+            <p id="voice-status" class="status-line"></p>
             <label>Voice service
                 <select id="tts_provider">
                     <option value="edge">Microsoft Edge (free, no key)</option>
@@ -50,10 +55,14 @@
             <label>ElevenLabs voice ID <input id="elevenlabs_voice" placeholder="empty: the Count's default voice"></label>
             <label>ElevenLabs model <input id="elevenlabs_model" placeholder="empty: fast multilingual default"></label>
             <button id="save-voice">Save voice</button>
+            <div class="buttons"><button data-kind="say" data-name="test">🔊 Test the voice</button></div>
         </section>
 
         <section>
             <h2>🗣️ Talking Count <span class="hint">(optional)</span></h2>
+            <p class="hint"><b>Easiest:</b> choose <b>xai</b> as chat model and as speech-to-text and paste one key from
+                <a href="https://console.x.ai" target="_blank" rel="noopener">console.x.ai</a> (the speech-to-text reuses it).
+                Each answer costs a fraction of a cent.</p>
             <p class="hint">Without keys the Count haunts with sounds and moves and speaks only his fixed lines. With a chat
                 model and a speech-to-text key he talks, sees costumes through the camera and tells ghost stories.
                 Keys are stored only on your robot. This page has no password: use it only on a network you trust.</p>

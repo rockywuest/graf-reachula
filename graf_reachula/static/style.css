@@ -24,6 +24,8 @@ header { text-align: center; padding: 28px 16px 8px; }
 h1 { margin: 6px 0 0; font-size: 30px; letter-spacing: 1px; }
 .sub { margin: 4px 0; color: var(--accent); }
 .status { color: var(--muted); min-height: 1.4em; }
+.status-line { color: var(--accent); font-size: 14px; min-height: 1.2em; margin: 6px 0; }
+.hint a { color: var(--accent); }
 
 main { max-width: 640px; margin: 0 auto; padding: 0 16px 24px; }
 section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 14px 0; }

@@ -84,7 +84,7 @@ class GrafReachula(ReachyMiniApp):
         @self.settings_app.get("/api/settings")
         def get_settings(request: Request):
             check_host(request)
-            return {**settings.public(), **status}
+            return {**settings.public(), **status, "voice_status": voice.status}
 
         @self.settings_app.post("/api/settings")
         def update_settings(update: SettingsUpdate, request: Request):
@@ -93,9 +93,11 @@ class GrafReachula(ReachyMiniApp):
                             "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "elevenlabs_api_key"}
             settings.update(update.changes)
             settings.save()
+            if {"tts_provider", "elevenlabs_api_key", "elevenlabs_voice", "elevenlabs_model"} & set(update.changes):
+                voice.reset()
             if talk_related & set(update.changes):
                 restart_talking()
-            return {**settings.public(), **status}
+            return {**settings.public(), **status, "voice_status": voice.status}
 
         @self.settings_app.post("/api/play/{kind}/{name}")
         def play(kind: str, name: str, request: Request):
@@ -121,7 +123,9 @@ class GrafReachula(ReachyMiniApp):
                 while requests:
                     kind, name = requests.pop(0)
                     try:
-                        if kind == "sound":
+                        if kind == "say":
+                            voice(voice.texts["voice_test"])
+                        elif kind == "sound":
                             stage.play_sound(name)
                         elif kind == "move":
                             stage.play_move(name)
