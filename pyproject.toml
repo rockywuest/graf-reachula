@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graf_reachula"
-version = "1.1.0"
+version = "1.2.0"
 description = "Count Reachula (Graf Reachula): Spooky Reachy, a child-friendly Halloween ghost for Reachy Mini"
 readme = "README.md"
 license = { text = "MIT" }

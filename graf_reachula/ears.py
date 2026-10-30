@@ -84,7 +84,7 @@ class Ears:
         self.model = stt["model"]
         self.api_key = stt["api_key"]
         self.base_url = (stt["base_url"] or "").rstrip("/")
-        if self.provider == "xai":
+        if self.provider in ("xai", "elevenlabs"):
             import httpx
 
             self.client = httpx.Client(timeout=30.0)
@@ -133,11 +133,18 @@ class Ears:
         sf.write(wav, audio, self.rate, format="WAV", subtype="PCM_16")
         if self.provider == "xai":
             text = self._transcribe_xai(wav.getvalue())
+        elif self.provider == "elevenlabs":
+            text = self._transcribe_elevenlabs(wav.getvalue())
         else:
+            # gpt-transcribe takes a list of languages instead of the older single `language`
+            if self.model.startswith("gpt-transcribe"):
+                language = {"extra_body": {"languages": [self.language]}}
+            else:
+                language = {"language": self.language}
             result = self.client.audio.transcriptions.create(
                 model=self.model,
                 file=("speech.wav", wav.getvalue(), "audio/wav"),
-                language=self.language,
+                **language,
             )
             text = (result.text or "").strip()
         if PHANTOMS.match(text):
@@ -153,6 +160,17 @@ class Ears:
             f"{self.base_url}/stt",
             headers={"Authorization": f"Bearer {self.api_key}"},
             data=data,
+            files={"file": ("speech.wav", wav, "audio/wav")},
+        )
+        response.raise_for_status()
+        return (response.json().get("text") or "").strip()
+
+    def _transcribe_elevenlabs(self, wav: bytes) -> str:
+        """ElevenLabs Scribe (POST /v1/speech-to-text, multipart)."""
+        response = self.client.post(
+            f"{self.base_url}/speech-to-text",
+            headers={"xi-api-key": self.api_key},
+            data={"model_id": self.model, "language_code": self.language, "keyterms": list(KEYTERMS)},
             files={"file": ("speech.wav", wav, "audio/wav")},
         )
         response.raise_for_status()

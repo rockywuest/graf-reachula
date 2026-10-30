@@ -10,6 +10,14 @@ SETTINGS_PATH = Path(os.getenv("GRAF_REACHULA_SETTINGS", Path.home() / ".config"
 
 LANGUAGES = ("en", "de")
 
+# Voices: free Microsoft Edge voices, or ElevenLabs with the user's own key
+TTS_PROVIDERS = ("edge", "elevenlabs")
+ELEVENLABS_URL = "https://api.elevenlabs.io/v1"
+ELEVENLABS_MODEL = "eleven_flash_v2_5"     # low latency, speaks English and German
+# ElevenLabs retires its default voices from time to time, so no voice ID is hard-coded:
+# without a configured voice the Count picks the first of these names the account has
+ELEVENLABS_VOICE_NAMES = ("Clyde", "Callum", "Adam", "George", "Daniel", "Brian")
+
 # Chat providers. Everything except Anthropic speaks the OpenAI chat API,
 # so one client covers them all with a different base URL.
 LLM_PROVIDERS = {
@@ -33,11 +41,12 @@ LLM_PROVIDERS = {
 # Speech-to-text providers: OpenAI-compatible /audio/transcriptions, plus xAI's own /stt
 STT_PROVIDERS = {
     "xai": {"base_url": "https://api.x.ai/v1", "model": "", "env": "XAI_API_KEY"},
-    "openai": {"base_url": None, "model": "gpt-4o-mini-transcribe", "env": "OPENAI_API_KEY",
+    "openai": {"base_url": None, "model": "gpt-transcribe", "env": "OPENAI_API_KEY",
                "official": ("https://api.openai.com/v1",)},
     "groq": {"base_url": "https://api.groq.com/openai/v1", "model": "whisper-large-v3-turbo",
              "env": "GROQ_API_KEY"},
-    "custom": {"base_url": "", "model": "whisper-1", "env": None},
+    "elevenlabs": {"base_url": ELEVENLABS_URL, "model": "scribe_v2", "env": "ELEVENLABS_API_KEY"},
+    "custom": {"base_url": "", "model": "gpt-transcribe", "env": None},
 }
 
 
@@ -59,8 +68,12 @@ class Settings:
     stt_api_key: str = ""           # empty: reuse the LLM key if it's the same provider
     stt_base_url: str = ""
 
-    voice_en: str = "en-GB-RyanNeural"
+    tts_provider: str = "edge"
+    voice_en: str = "en-GB-RyanNeural"     # Edge voices
     voice_de: str = "de-DE-ConradNeural"
+    elevenlabs_api_key: str = ""           # also used for ElevenLabs speech-to-text
+    elevenlabs_voice: str = ""             # empty: the Count's default voice
+    elevenlabs_model: str = ""
 
     # -- resolved values --------------------------------------------------
 
@@ -90,11 +103,26 @@ class Settings:
                          and (self.stt_base_url or preset["base_url"]) == self.llm()["base_url"])
         if not key and same_endpoint:
             key = self.llm()["api_key"]
+        if not key and self.stt_provider == "elevenlabs":
+            key = self.elevenlabs_key()
         return {
             "provider": self.stt_provider,
             "model": self.stt_model or preset["model"],
             "base_url": self.stt_base_url or preset["base_url"],
             "api_key": key,
+        }
+
+    def elevenlabs_key(self) -> str:
+        return self.elevenlabs_api_key or os.getenv("ELEVENLABS_API_KEY", "")
+
+    def tts(self) -> dict:
+        eleven = self.tts_provider == "elevenlabs" and bool(self.elevenlabs_key())
+        return {
+            "provider": "elevenlabs" if eleven else "edge",
+            "api_key": self.elevenlabs_key() if eleven else "",
+            "voice": self.elevenlabs_voice,      # empty: picked from the account's voices
+            "model": self.elevenlabs_model or ELEVENLABS_MODEL,
+            "edge_voice": self.voice_de if self.language == "de" else self.voice_en,
         }
 
     def can_talk(self) -> bool:
@@ -126,12 +154,13 @@ class Settings:
     def public(self) -> dict:
         """Settings for the web page, with keys masked."""
         data = asdict(self)
-        for name in ("llm_api_key", "stt_api_key"):
+        for name in ("llm_api_key", "stt_api_key", "elevenlabs_api_key"):
             key = data[name]
             data[name] = ("••••" + key[-4:] if len(key) > 12 else "••••") if key else ""
         data["can_talk"] = self.can_talk()
         data["llm_providers"] = list(LLM_PROVIDERS)
         data["stt_providers"] = list(STT_PROVIDERS)
+        data["tts_providers"] = list(TTS_PROVIDERS)
         return data
 
     def update(self, changes: dict):
@@ -162,5 +191,7 @@ class Settings:
             if name == "llm_provider" and value not in LLM_PROVIDERS:
                 continue
             if name == "stt_provider" and value not in STT_PROVIDERS:
+                continue
+            if name == "tts_provider" and value not in TTS_PROVIDERS:
                 continue
             setattr(self, name, value)

@@ -3,6 +3,7 @@ const MOVES = ["scared", "startled", "laughing", "dying", "surprised", "shocked"
 const TOGGLES = ["scares", "ambient", "talk", "wake_word"];
 const FIELDS = ["language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
     "stt_provider", "stt_model", "stt_api_key", "stt_base_url"];
+const VOICE_FIELDS = ["tts_provider", "elevenlabs_api_key", "elevenlabs_voice", "elevenlabs_model"];
 
 const $ = (id) => document.getElementById(id);
 
@@ -28,7 +29,7 @@ function show(settings) {
     fillSelect("llm_provider", settings.llm_providers);
     fillSelect("stt_provider", settings.stt_providers);
     for (const t of TOGGLES) $(t).checked = !!settings[t];
-    for (const f of FIELDS) $(f).value = settings[f] ?? "";
+    for (const f of [...FIELDS, ...VOICE_FIELDS]) $(f).value = settings[f] ?? "";
     let text = "The Count haunts with sounds and moves (talking is off).";
     if (settings.talking) text = "🧛 The Count is listening.";
     else if (settings.talk_error) text = "Talking failed: " + settings.talk_error;
@@ -71,6 +72,11 @@ for (const t of ["scares", "ambient", "wake_word", "talk"]) {
     $(t).addEventListener("change", () => save({ [t]: $(t).checked }));
 }
 $("language").addEventListener("change", () => save({ language: $("language").value }));
+$("save-voice").addEventListener("click", () => {
+    const changes = {};
+    for (const f of VOICE_FIELDS) changes[f] = $(f).value.trim();
+    save(changes);
+});
 $("save").addEventListener("click", () => {
     const changes = {};
     for (const f of FIELDS) changes[f] = $(f).value.trim();

@@ -37,6 +37,22 @@
         </section>
 
         <section>
+            <h2>🎙️ Voice</h2>
+            <p class="hint">Free Microsoft Edge voice by default. With your own ElevenLabs key the Count gets a
+                real theatrical vampire voice; if ElevenLabs fails, he falls back to the free voice.</p>
+            <label>Voice service
+                <select id="tts_provider">
+                    <option value="edge">Microsoft Edge (free, no key)</option>
+                    <option value="elevenlabs">ElevenLabs (your key)</option>
+                </select>
+            </label>
+            <label>ElevenLabs API key <input id="elevenlabs_api_key" type="password" placeholder="or set ELEVENLABS_API_KEY"></label>
+            <label>ElevenLabs voice ID <input id="elevenlabs_voice" placeholder="empty: the Count's default voice"></label>
+            <label>ElevenLabs model <input id="elevenlabs_model" placeholder="empty: fast multilingual default"></label>
+            <button id="save-voice">Save voice</button>
+        </section>
+
+        <section>
             <h2>🗣️ Talking Count <span class="hint">(optional)</span></h2>
             <p class="hint">Without keys the Count haunts with sounds and moves and speaks only his fixed lines. With a chat
                 model and a speech-to-text key he talks, sees costumes through the camera and tells ghost stories.

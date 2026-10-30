@@ -34,6 +34,7 @@ Spooky, but child-friendly: a startle now and then, never gore, nothing mean. Mo
 | 🔊 **Spooky sounds** — heartbeat, ghost, creaking door, wind, church bells, laughter (synthesized, no audio files) | ✅ | ✅ |
 | 💃 **Spooky moves** — trembling, a dramatic ghostly faint, a wobbly zap, a monster roar (from Pollen's emotion library) | ✅ | ✅ |
 | 🎙️ **Intro and scare lines** in a deep vampire voice (Microsoft Edge online voices, no key, needs internet) | ✅ | ✅ |
+| 🧛 **Theatrical vampire voice** with your own ElevenLabs key (optional, falls back to Edge) | | ✅ |
 | 🗣️ **Talking Count** — answers when called by name, sees costumes, tells stories, riddles, fortunes | | ✅ |
 
 ## Install
@@ -62,16 +63,26 @@ readable only by its owner). You can also set them as environment variables.
 | xAI (Grok) — fastest in our tests | `grok-4.20-0309-non-reasoning` | `XAI_API_KEY` |
 | OpenRouter | `anthropic/claude-opus-5.5` | `OPENROUTER_API_KEY` |
 | Mistral | `mistral-medium-latest` | `MISTRAL_API_KEY` |
-| Groq | `qwen/qwen3.8-27b` | `GROQ_API_KEY` |
+| Groq ⚠️ preview model, may be retired at short notice | `qwen/qwen3.8-27b` | `GROQ_API_KEY` |
 | Ollama (local) | `gemma3` | — |
 | Custom (any OpenAI-compatible API) | your choice | — |
 
 | Speech-to-text | Default model | Key variable |
 |---|---|---|
 | xAI (Grok) — knows the Count's names | — | `XAI_API_KEY` |
-| OpenAI | `gpt-4o-mini-transcribe` | `OPENAI_API_KEY` |
+| OpenAI | `gpt-transcribe` | `OPENAI_API_KEY` |
+| ElevenLabs (Scribe, knows the Count's names) | `scribe_v2` | `ELEVENLABS_API_KEY` |
 | Groq (fast, generous free tier) | `whisper-large-v3-turbo` | `GROQ_API_KEY` |
 | Custom (OpenAI-compatible `/audio/transcriptions`) | your choice | — |
+
+### A better voice (optional): ElevenLabs
+
+Out of the box the Count speaks with a free Microsoft Edge voice, made deeper and slower. With your own
+[ElevenLabs](https://elevenlabs.io) key (on the app's page, or `ELEVENLABS_API_KEY`) he gets a theatrical voice.
+Leave the voice ID empty and the Count picks a deep narrator voice from your account (ElevenLabs changes its
+default voices from time to time), or paste any voice ID you like. The default model is `eleven_flash_v2_5`
+(fast, English and German). Repeated lines are cached, and if ElevenLabs fails he falls back to the free voice.
+The same key can also be used for speech-to-text (Scribe).
 
 Every model can be changed on the app's page; providers rename models often, so check their model list if a
 default stops working. Models without vision work too; the Count then just can't see.
@@ -122,7 +133,9 @@ Geräusche und Bewegungen testen und optional Schlüssel eintragen.
 **Ohne Schlüssel:** Erschrecken, Gruselgeräusche, Gruselbewegungen, Begrüßung mit Vampirstimme.
 **Mit Schlüssel:** Der Graf spricht. Er braucht ein Chat-Modell mit Bildverständnis (Claude, OpenAI, xAI/Grok,
 Gemini, OpenRouter, Mistral, Groq, Ollama oder jede OpenAI-kompatible Schnittstelle) und eine Spracherkennung
-(xAI, OpenAI, Groq oder kompatibel). Ein einziger xAI-Schlüssel reicht für beides. Die Schlüssel bleiben auf dem Roboter.
+(xAI, OpenAI, ElevenLabs, Groq oder kompatibel). Ein einziger xAI-Schlüssel reicht für beides.
+**Stimme:** Mit einem eigenen ElevenLabs-Schlüssel bekommt der Graf eine echte Vampirstimme; ohne Schlüssel spricht
+er mit der kostenlosen Microsoft-Edge-Stimme. Die Schlüssel bleiben auf dem Roboter.
 
 Auf einer lauten Party antwortet der Graf nur, wenn man ihn ruft („Reachy“, „Graf“, „Count“). Auch Wörter wie
 „reach“ oder „count“ können ihn wecken. Die Einstellungsseite hat kein Passwort: nur in vertrauenswürdigen Netzen nutzen.

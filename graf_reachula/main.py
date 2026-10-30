@@ -90,7 +90,7 @@ class GrafReachula(ReachyMiniApp):
         def update_settings(update: SettingsUpdate, request: Request):
             check_host(request)
             talk_related = {"talk", "language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
-                            "stt_provider", "stt_model", "stt_api_key", "stt_base_url"}
+                            "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "elevenlabs_api_key"}
             settings.update(update.changes)
             settings.save()
             if talk_related & set(update.changes):
