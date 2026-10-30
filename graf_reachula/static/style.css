@@ -1,0 +1,52 @@
+:root {
+    --bg: #14101c;
+    --card: #211a2e;
+    --text: #f1eaff;
+    --muted: #b3a6c9;
+    --accent: #ff7a1a;
+    --blood: #c4161c;
+    --line: #3a2f4f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: radial-gradient(circle at 50% -20%, #3b1f5c 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh;
+}
+
+header { text-align: center; padding: 28px 16px 8px; }
+.bat { font-size: 44px; animation: flap 2.4s ease-in-out infinite; }
+@keyframes flap { 50% { transform: translateY(-6px) rotate(-6deg); } }
+h1 { margin: 6px 0 0; font-size: 30px; letter-spacing: 1px; }
+.sub { margin: 4px 0; color: var(--accent); }
+.status { color: var(--muted); min-height: 1.4em; }
+
+main { max-width: 640px; margin: 0 auto; padding: 0 16px 24px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 14px 0; }
+h2 { margin: 0 0 10px; font-size: 19px; }
+h3 { margin: 16px 0 6px; font-size: 15px; color: var(--muted); }
+.hint { color: var(--muted); font-size: 13px; font-weight: normal; }
+
+label { display: block; margin: 8px 0; }
+label.row { display: flex; align-items: center; gap: 8px; }
+input:not([type=checkbox]), select {
+    display: block; width: 100%; margin-top: 4px; padding: 8px 10px;
+    background: #120e19; color: var(--text); border: 1px solid var(--line); border-radius: 8px; font-size: 15px;
+}
+label.row select { display: inline-block; width: auto; margin: 0 0 0 auto; }
+
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+button {
+    background: #2d2440; color: var(--text); border: 1px solid var(--line); border-radius: 999px;
+    padding: 8px 14px; font-size: 14px; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.scare, #save { background: var(--blood); border-color: var(--blood); font-weight: 600; }
+#save { margin-top: 12px; border-radius: 8px; width: 100%; }
+
+footer { text-align: center; color: var(--muted); font-size: 13px; padding: 16px; }
+footer a { color: var(--accent); }

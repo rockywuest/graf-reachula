@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Count Reachula</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <header>
+        <div class="bat">🦇</div>
+        <h1>Count Reachula</h1>
+        <p class="sub">Spooky Reachy · your friendly Halloween ghost</p>
+        <p id="status" class="status">Waking up the Count…</p>
+    </header>
+
+    <main>
+        <section>
+            <h2>👻 Haunting</h2>
+            <label class="row"><input type="checkbox" id="scares"> Lurk and jump-scare people who walk up</label>
+            <label class="row"><input type="checkbox" id="ambient"> Spooky sounds now and then</label>
+            <label class="row">Language
+                <select id="language">
+                    <option value="en">English</option>
+                    <option value="de">Deutsch</option>
+                </select>
+            </label>
+        </section>
+
+        <section>
+            <h2>🔮 Try it</h2>
+            <div class="buttons" id="sound-buttons"></div>
+            <div class="buttons" id="move-buttons"></div>
+            <div class="buttons"><button class="scare" data-kind="scare" data-name="now">BOO! Scare now</button></div>
+        </section>
+
+        <section>
+            <h2>🗣️ Talking Count <span class="hint">(optional)</span></h2>
+            <p class="hint">Without keys the Count haunts silently. With a chat model and a speech-to-text
+                key he talks, sees costumes through the camera and tells ghost stories.
+                Keys are stored only on your robot.</p>
+            <label class="row"><input type="checkbox" id="talk"> Talk</label>
+            <label class="row"><input type="checkbox" id="wake_word"> Only answer when called by name
+                (“Reachy”, “Count”, “Graf”)</label>
+
+            <h3>Chat model</h3>
+            <label>Provider <select id="llm_provider"></select></label>
+            <label>Model <input id="llm_model" placeholder="provider default"></label>
+            <label>API key <input id="llm_api_key" type="password" placeholder="or set it as environment variable"></label>
+            <label>Base URL <input id="llm_base_url" placeholder="only for custom / self-hosted"></label>
+
+            <h3>Speech-to-text</h3>
+            <label>Provider <select id="stt_provider"></select></label>
+            <label>Model <input id="stt_model" placeholder="provider default"></label>
+            <label>API key <input id="stt_api_key" type="password" placeholder="empty: same as chat key if same provider"></label>
+            <label>Base URL <input id="stt_base_url" placeholder="only for custom"></label>
+
+            <button id="save">Save</button>
+        </section>
+    </main>
+
+    <footer>
+        Made with 🧛 by <a href="https://frechundwuest.de" target="_blank" rel="noopener">FRECH &amp; WUEST</a>
+        · <a href="https://github.com/rockywuest/graf-reachula" target="_blank" rel="noopener">Source</a>
+    </footer>
+    <script src="/static/main.js"></script>
+</body>
+
+</html>

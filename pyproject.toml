@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "graf_reachula"
+version = "1.0.0"
+description = "Count Reachula (Graf Reachula): Spooky Reachy, a child-friendly Halloween ghost for Reachy Mini"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "FRECH & WUEST GmbH" }]
+requires-python = ">=3.10"
+dependencies = [
+    "reachy-mini",
+    "numpy",
+    "opencv-python-headless",
+    "soundfile",
+    "edge-tts>=7.3",
+    "anthropic>=1.0",
+    "openai>=1.40",
+]
+keywords = ["reachy-mini-app", "halloween", "robot", "spooky"]
+
+[project.urls]
+Homepage = "https://huggingface.co/spaces/RockyRocket/graf_reachula"
+Source = "https://github.com/rockywuest/graf-reachula"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.entry-points."reachy_mini_apps"]
+graf_reachula = "graf_reachula.main:GrafReachula"
+
+[tool.setuptools]
+package-dir = { "" = "." }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["graf_reachula*"]
+
+[tool.setuptools.package-data]
+graf_reachula = ["**/*"] # Also include all non-.py files
