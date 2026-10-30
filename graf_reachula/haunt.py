@@ -13,10 +13,10 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
-LURK_AFTER = 15          # seconds of the Count being silent before he starts lurking
+LURK_AFTER = 8           # seconds of the Count being silent before he starts lurking
 SCARE_COOLDOWN = 40      # seconds between two automatic jump scares
 MIN_SCARE_GAP = 8        # seconds between any two scares (also requested ones)
-AMBIENT_EVERY = (50, 100)
+AMBIENT_EVERY = (25, 50)
 # Share of pixels that must change between two frames. A still room measured
 # at most 1.7 %; someone stepping in front of the camera is far above 6 %.
 MOTION_THRESHOLD = 0.06

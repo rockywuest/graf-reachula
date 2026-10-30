@@ -2,6 +2,7 @@
 
 import base64
 import logging
+import random
 import re
 import threading
 import time
@@ -25,6 +26,8 @@ ADDRESSED = re.compile(
 )
 ECHO_WINDOW = 5    # seconds after he finished (speech-to-text needs a moment, too) in which a transcript may be his own last line
 ECHO_OVERLAP = 0.9  # nearly all words his: a guest who answers ("yes, tell me a ghost story") repeats only some
+
+FILLER_MOVES = ("laughing", "surprised", "scared", "startled", "shocked")   # when the model forgets a move
 
 TAG = re.compile(r"\[(sound|move|scare)(?::([^\]]*))?\]", re.IGNORECASE)
 
@@ -71,6 +74,11 @@ class Talk:
         return " · ".join(e for e in (self.stt_error, self.chat_error) if e)
 
     def perform(self, effects):
+        if not any(kind in ("move", "scare") for kind, _ in effects):
+            # A Count who only talks looks stiff: every answer gets a gesture
+            fillers = [m for m in FILLER_MOVES if m in self.stage.moves]
+            if fillers:
+                effects = [*effects, ("move", random.choice(fillers))]
         for kind, arg in effects:
             if kind == "sound":
                 self.stage.play_sound(arg)

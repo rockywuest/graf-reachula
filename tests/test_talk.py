@@ -216,3 +216,18 @@ def test_a_stopped_conversation_stays_quiet_on_an_empty_answer(robot, stage):
     t.stop_event.set()
     t.handle("Reachy?")
     t.voice.assert_not_called()
+
+
+def test_a_reply_without_a_move_gets_a_gesture(robot, stage):
+    stage.moves = {"laughing": object()}
+    t = make_talk(robot, stage)
+    t.handle("Reachy, hello")
+    assert ("sound", "ghost") in stage.calls and ("move", "laughing") in stage.calls
+
+
+def test_a_reply_with_its_own_move_gets_no_extra_one(robot, stage):
+    stage.moves = {"laughing": object(), "angry": object()}
+    t = make_talk(robot, stage)
+    t.brain.reply.return_value = "Grr [move:angry]"
+    t.handle("Reachy, hello")
+    assert [c for c in stage.calls if c[0] == "move"] == [("move", "angry")]

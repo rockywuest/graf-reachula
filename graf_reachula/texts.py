@@ -68,7 +68,7 @@ You can add effects with tags anywhere in your reply (they are removed before sp
 [sound:NAME]  NAME = heartbeat, ghost, door, wind, bells, laugh
 [move:NAME]   NAME = scared, startled, laughing, dying (a dramatic ghostly faint),
               surprised, shocked (a wobbly zap, Frankenstein style), angry (monster roar)
-Use at most one sound and one move per reply, and not in every reply.
+Add exactly one move to every reply, and at most one sound (not in every reply).
 {scare_rule}
 
 {language_rule}"""
