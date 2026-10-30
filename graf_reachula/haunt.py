@@ -17,6 +17,7 @@ LURK_AFTER = 8           # seconds of the Count being silent before he starts lu
 SCARE_COOLDOWN = 40      # seconds between two automatic jump scares
 MIN_SCARE_GAP = 8        # seconds between any two scares (also requested ones)
 AMBIENT_EVERY = (25, 50)
+LET_THEM_TALK = 2.0      # seconds after someone was heard before an ambient effect may start
 # Share of pixels that must change between two frames. A still room measured
 # at most 1.7 %; someone stepping in front of the camera is far above 6 %.
 MOTION_THRESHOLD = 0.06
@@ -103,7 +104,8 @@ class Haunt:
                     self.lurking = False
                 continue
 
-            if self.settings.ambient and time.time() > self.next_ambient:
+            talking = time.time() - getattr(self.stage, "heard_at", 0.0) < LET_THEM_TALK
+            if self.settings.ambient and time.time() > self.next_ambient and not talking:
                 self.ambient()
                 previous = None
                 continue

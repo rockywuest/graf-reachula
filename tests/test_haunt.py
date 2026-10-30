@@ -170,3 +170,29 @@ def test_scares_off_also_stops_requested_scares(stage):
 
     Haunt(robot=None, stage=stage, settings=SimpleNamespace(scares=False)).jump_scare()
     assert stage.calls == []
+
+
+def test_no_ambient_effect_while_someone_is_talking(stage, fast_haunt):
+    """At the party test an ambient effect started as a guest began a question: the mic was muted and it got lost."""
+    h = make_haunt(stage, [solid(0)])
+    h.settings.ambient = True
+    h.next_ambient = 0.0
+    stage.heard_at = time.time() + 3600   # someone keeps talking
+    stop, thread = start(h)
+    try:
+        time.sleep(1.0)
+        assert not any(isinstance(c, tuple) for c in stage.calls), "no sound or move while a guest talks"
+        stage.heard_at = 0.0                  # they stopped
+        assert _any_effect(stage)
+    finally:
+        stop.set()
+        thread.join(timeout=2)
+
+
+def _any_effect(stage, timeout=3.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if any(isinstance(c, tuple) for c in stage.calls):
+            return True
+        time.sleep(0.05)
+    return False

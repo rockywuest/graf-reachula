@@ -152,6 +152,8 @@ class Ears:
             while len(self.buffer) >= frame_len:
                 frame, self.buffer = self.buffer[:frame_len], self.buffer[frame_len:]
                 utterance = self.vad.push(frame)
+                if self.vad.active:
+                    self.stage.heard_at = time.time()   # the haunt waits: an ambient sound would cut the guest off
                 if utterance is not None:
                     return utterance
         return None

@@ -41,6 +41,7 @@ class Stage:
         self.quiet_from = 0.0           # the room still echoes until this time
         self.recording = False          # the ears are using the microphone
         self.ears = None                # the Ears that currently own the microphone
+        self.heard_at = 0.0             # when the microphone last heard someone speaking
         self.last_performance = time.time()
         self.pose = "neutral"           # "lurk" while the head hangs down waiting for a victim
         self.sounds = sounds.build_library()
