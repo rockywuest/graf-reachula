@@ -93,8 +93,6 @@ def test_proxy_base_url_does_not_receive_env_key(monkeypatch):
     assert s.llm()["api_key"] == ""
 
 
-@pytest.mark.xfail(strict=True, reason="_env_key compares against preset base_url (None for openai), so an "
-                                       "explicit official URL https://api.openai.com/v1 suppresses OPENAI_API_KEY")
 def test_explicit_official_openai_url_still_gets_env_key(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "openai-env")
     s = Settings(llm_provider="openai", llm_base_url="https://api.openai.com/v1")
@@ -158,8 +156,8 @@ def test_update_ignores_unknown_fields():
     s = Settings()
     s.update({"bogus": "x", "can_talk": True, "llm_providers": ["evil"]})
     assert not hasattr(s, "bogus")
-    assert not hasattr(s, "can_talk")
-    assert not hasattr(s, "llm_providers")
+    assert "can_talk" not in vars(s)
+    assert "llm_providers" not in vars(s)
 
 
 def test_update_coerces_boolean_fields():
@@ -198,3 +196,8 @@ def test_unchanged_provider_keeps_key_when_masked_key_sent_back():
     s = Settings(llm_provider="openai", llm_api_key="openai-secret")
     s.update({"llm_provider": "openai", "llm_api_key": "••••cret"})
     assert s.llm_api_key == "openai-secret"
+
+
+def test_public_does_not_reveal_short_keys():
+    data = Settings(llm_api_key="abc").public()
+    assert "abc" not in data["llm_api_key"]

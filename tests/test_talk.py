@@ -30,7 +30,6 @@ def test_split_effects_keeps_effect_order():
     assert effects == [("move", "dying"), ("sound", "bells"), ("scare", "")]
 
 
-@pytest.mark.xfail(strict=True, reason="tag removal joins the words around a tag with no space")
 def test_split_effects_does_not_glue_words_around_a_tag():
     assert split_effects("Hello[scare]there")[0] == "Hello there"
 
@@ -66,6 +65,7 @@ def make_talk(robot, stage, wake_word=True):
     t.brain = MagicMock()
     t.brain.reply.return_value = "Hello [sound:ghost] friend"
     t.last_reply = 0.0
+    t.stop_event = threading.Event()
     return t
 
 
@@ -104,6 +104,14 @@ def test_wake_word_off_answers_everything(robot, stage):
     t = make_talk(robot, stage, wake_word=False)
     t.handle("Richtig gut")
     t.brain.reply.assert_called_once()
+
+
+def test_reply_is_dropped_when_the_app_stopped_while_thinking(robot, stage):
+    t = make_talk(robot, stage)
+    t.brain.reply.side_effect = lambda *a: (t.stop_event.set(), "Late answer")[1]
+    t.handle("Reachy, hello")
+    t.voice.assert_not_called()
+    assert stage.calls == []
 
 
 def test_scare_tag_triggers_haunt_jump(robot, stage):

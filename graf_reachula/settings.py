@@ -13,8 +13,10 @@ LANGUAGES = ("en", "de")
 # Chat providers. Everything except Anthropic speaks the OpenAI chat API,
 # so one client covers them all with a different base URL.
 LLM_PROVIDERS = {
-    "anthropic": {"base_url": None, "model": "claude-opus-5-5", "env": "ANTHROPIC_API_KEY"},
-    "openai": {"base_url": None, "model": "gpt-5.6-terra", "env": "OPENAI_API_KEY"},
+    "anthropic": {"base_url": None, "model": "claude-opus-5-5", "env": "ANTHROPIC_API_KEY",
+                  "official": ("https://api.anthropic.com",)},
+    "openai": {"base_url": None, "model": "gpt-5.6-terra", "env": "OPENAI_API_KEY",
+               "official": ("https://api.openai.com/v1",)},
     "gemini": {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
                "model": "gemini-3.5-flash-lite", "env": "GEMINI_API_KEY"},
     "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": "anthropic/claude-opus-5.5",
@@ -29,7 +31,8 @@ LLM_PROVIDERS = {
 
 # Speech-to-text providers (OpenAI-compatible /audio/transcriptions)
 STT_PROVIDERS = {
-    "openai": {"base_url": None, "model": "gpt-4o-mini-transcribe", "env": "OPENAI_API_KEY"},
+    "openai": {"base_url": None, "model": "gpt-4o-mini-transcribe", "env": "OPENAI_API_KEY",
+               "official": ("https://api.openai.com/v1",)},
     "groq": {"base_url": "https://api.groq.com/openai/v1", "model": "whisper-large-v3-turbo",
              "env": "GROQ_API_KEY"},
     "custom": {"base_url": "", "model": "whisper-1", "env": None},
@@ -63,7 +66,8 @@ class Settings:
     def _env_key(preset: dict, base_url: str) -> str:
         # Keys from the environment only ever go to the provider's own endpoint,
         # never to a base URL someone typed into the settings page
-        if not preset["env"] or (base_url and base_url != preset["base_url"]):
+        official = {preset["base_url"], *preset.get("official", ())}
+        if not preset["env"] or (base_url and base_url.rstrip("/") not in {u.rstrip("/") for u in official if u}):
             return ""
         return os.getenv(preset["env"], "")
 

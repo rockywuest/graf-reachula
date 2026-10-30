@@ -3,7 +3,6 @@
 import socket
 import threading
 import time
-from types import SimpleNamespace
 
 import numpy as np
 import pytest

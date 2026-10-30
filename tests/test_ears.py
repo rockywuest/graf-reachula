@@ -1,4 +1,3 @@
-import io
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -6,7 +5,7 @@ import numpy as np
 import pytest
 
 from graf_reachula import ears
-from graf_reachula.ears import END_SILENCE, FRAME_SECONDS, MAX_SPEECH, PHANTOMS, EnergyVAD, Ears
+from graf_reachula.ears import END_SILENCE, FRAME_SECONDS, PHANTOMS, EnergyVAD, Ears
 
 RATE = 16000
 FRAME = int(RATE * FRAME_SECONDS)   # 480 samples
@@ -51,20 +50,32 @@ def test_speech_shorter_than_minimum_is_ignored():
     assert feed(vad, [loud() for _ in range(3)] + [quiet() for _ in range(60)]) == []
 
 
-def test_max_length_cuts_a_long_utterance():
+def test_max_length_cuts_a_long_utterance(monkeypatch):
+    # A steady tone fades into the background after a few seconds (by design), so the cap is
+    # checked with a short MAX_SPEECH; the cut itself is what's under test
+    monkeypatch.setattr(ears, "MAX_SPEECH", 2.0)
     vad = EnergyVAD(RATE)
-    utterances = feed(vad, [loud() for _ in range(int(20 / FRAME_SECONDS))])
+    utterances = feed(vad, [loud() for _ in range(int(10 / FRAME_SECONDS))])
     assert len(utterances) >= 1
-    seconds = len(utterances[0]) / RATE
-    assert MAX_SPEECH - 0.5 <= seconds <= MAX_SPEECH + 0.5, seconds
+    assert 1.9 <= len(utterances[0]) / RATE <= 2.1
 
 
-def test_background_level_adapts_so_steady_noise_is_not_speech():
+def test_quiet_room_noise_is_not_speech():
     vad = EnergyVAD(RATE)
-    hum = np.full(FRAME, 0.02, dtype=np.float32)
-    # Steady hum is loud at first, but the floor follows it up
-    feed(vad, [hum for _ in range(400)])
-    assert vad.floor > 0.01
+    rng = np.random.default_rng(0)
+    hum = [(rng.standard_normal(FRAME) * 0.005).astype(np.float32) for _ in range(int(60 / FRAME_SECONDS))]
+    assert feed(vad, hum) == []
+
+
+def test_steady_loud_room_noise_is_reported_at_most_once():
+    # A party's steady noise is reported once at onset (~4 s), then the floor rises to meet it
+    # and it stops counting as speech; it must not be cut into utterances every few seconds
+    vad = EnergyVAD(RATE)
+    rng = np.random.default_rng(0)
+    hum = [(rng.standard_normal(FRAME) * 0.03).astype(np.float32) for _ in range(int(60 / FRAME_SECONDS))]
+    utterances = feed(vad, hum)
+    assert len(utterances) <= 1
+    assert all(len(u) / RATE < 6.0 for u in utterances)
 
 
 @pytest.mark.parametrize("text", [

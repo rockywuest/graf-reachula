@@ -10,6 +10,14 @@ OPENAI = {"provider": "openai", "model": "gpt-test", "base_url": None, "api_key"
 SYSTEM = "SYSTEM PROMPT"
 
 
+class ApiError(Exception):
+    """An SDK-style error that carries an HTTP status, as the real clients do."""
+
+    def __init__(self, message, status_code):
+        super().__init__(message)
+        self.status_code = status_code
+
+
 def anthropic_response(text="Boo!", stop="end_turn"):
     return SimpleNamespace(stop_reason=stop, content=[SimpleNamespace(type="text", text=text)])
 
@@ -82,7 +90,8 @@ def test_history_is_trimmed_to_last_exchanges():
     # previous 12 history entries plus the new user turn
     assert len(last_messages) == MAX_HISTORY + 1
     assert last_messages[0]["role"] == "user"
-    assert last_messages[0]["content"] == "question 4"
+    # the 10th request was sent with the 12 entries kept after exchange 8: questions 3..8
+    assert last_messages[0]["content"] == "question 3"
 
 
 def test_failed_call_is_not_stored_in_history():
@@ -92,9 +101,8 @@ def test_failed_call_is_not_stored_in_history():
     assert brain.history == []
 
 
-@pytest.mark.xfail(strict=True, reason="a refusal stores an empty assistant turn; Anthropic rejects "
-                                       "empty message content on the next request")
 def test_refusal_does_not_poison_history_with_empty_assistant_turn():
+    # An empty assistant turn would make the next Anthropic request fail
     brain = anthropic_brain([anthropic_response("", stop="refusal"), anthropic_response("Again!")])
     brain.reply("first", None)
     brain.reply("second", None)
@@ -130,9 +138,10 @@ def test_unrelated_errors_are_not_retried_as_effort_errors():
 
 # -- vision fallback -----------------------------------------------------------------------
 
-def test_vision_fallback_retries_without_photo_and_remembers_it():
+@pytest.mark.parametrize("status", [400, 404, 415, 422])
+def test_vision_fallback_retries_without_photo_and_remembers_it(status):
     brain = anthropic_brain([
-        Exception("this model does not accept image input"),
+        ApiError("this model does not accept image input", status),
         anthropic_response("Text only then"),
         anthropic_response("Still text"),
     ])
@@ -148,17 +157,20 @@ def test_vision_fallback_retries_without_photo_and_remembers_it():
 
 
 def test_vision_fallback_failing_text_retry_propagates():
-    brain = anthropic_brain([Exception("no images"), Exception("server down")])
+    brain = anthropic_brain([ApiError("no images", 400), Exception("server down")])
     with pytest.raises(Exception, match="server down"):
         brain.reply("look", "AAAA")
 
 
-@pytest.mark.xfail(strict=True, reason="any exception with a photo (e.g. a timeout) permanently disables "
-                                       "the camera for the session, not only image-rejection errors")
 def test_transient_error_with_photo_does_not_disable_vision():
-    brain = anthropic_brain([Exception("read timeout"), anthropic_response("Hi")])
-    brain.reply("look", "AAAA")
+    # Rate limits and timeouts are not a reason to stop looking
+    brain = anthropic_brain([ApiError("rate limited", 429), anthropic_response("Hi")])
+    with pytest.raises(ApiError):
+        brain.reply("look", "AAAA")
     assert brain.vision is True
+    assert brain.reply("look again", "AAAA") == "Hi"
+    content = brain.client.messages.create.call_args.kwargs["messages"][-1]["content"]
+    assert content[0]["type"] == "image"
 
 
 # -- OpenAI-compatible shape --------------------------------------------------------------
@@ -191,7 +203,7 @@ def test_openai_history_is_sent_back_in_order():
 
 
 def test_openai_vision_fallback_on_text_only_model():
-    brain = openai_brain([Exception("model does not support image_url"), openai_response("Text")])
+    brain = openai_brain([ApiError("model does not support image_url", 400), openai_response("Text")])
     assert brain.reply("hi", "AAAA") == "Text"
     assert brain.vision is False
 

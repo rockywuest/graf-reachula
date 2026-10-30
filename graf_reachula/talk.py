@@ -28,9 +28,9 @@ TAG = re.compile(r"\[(sound|move|scare)(?::([^\]]*))?\]", re.IGNORECASE)
 def split_effects(reply: str) -> tuple[str, list[tuple[str, str]]]:
     """Separate [sound:x] / [move:x] / [scare] tags from the text to speak."""
     effects = [(kind.lower(), (arg or "").strip().lower()) for kind, arg in TAG.findall(reply)]
-    text = TAG.sub("", reply)
+    text = TAG.sub(" ", reply)
     # Drop any other bracketed stage directions the model may add
-    text = re.sub(r"\[[^\]]*\]|\*[^*]*\*", "", text)
+    text = re.sub(r"\[[^\]]*\]|\*[^*]*\*", " ", text)
     return " ".join(text.split()), effects
 
 
