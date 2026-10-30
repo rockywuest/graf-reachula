@@ -46,7 +46,9 @@ LOOPBACK = {"127.0.0.1", "::1"}
 # Guessed first; the guess counters start over when the app restarts, which anyone on
 # the network can trigger through the robot's control service
 WEAK_PINS = {"123456", "1234567", "12345678", "000000", "111111", "654321", "121212", "112233",
-             "123123", "123321", "666666", "696969", "password", "passwort", "qwertz", "qwerty"}
+             "123123", "123321", "666666", "696969", "password", "passwort", "qwertz", "qwerty",
+             "halloween", "reachy", "reachula", "dracula", "graf", "count", "geheim", "secret",
+             "123456789", "1234567890", "abc123", "abcdef", "boo123"}
 PIN_CHARS = re.compile(r"^[\x21-\x7e]+$")   # printable ASCII: it travels in an HTTP header
 TALK_RELATED = {"talk", "language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
                 "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "elevenlabs_api_key"}
@@ -87,6 +89,18 @@ def new_setup_code() -> str:
     return code
 
 
+def is_weak_pin(pin: str) -> bool:
+    """Common PINs, one repeated character, or a run of digits like 345678 or 987654."""
+    pin = pin.lower()
+    if pin in WEAK_PINS or len(set(pin)) == 1:
+        return True
+    if pin.isdigit():
+        steps = {int(b) - int(a) for a, b in zip(pin, pin[1:])}
+        if steps in ({1}, {-1}):
+            return True
+    return False
+
+
 def switches_off(value) -> bool:
     return value is False or str(value).strip().lower() in ("false", "0", "off", "no")
 
@@ -112,6 +126,13 @@ class GrafReachula(ReachyMiniApp):
         recent_failures: list[float] = []
         global_lock = {"until": 0.0}
         trusted: set[str] = set()              # devices that sent the right PIN in this run
+
+        def refresh_pin():
+            """Re-read the PIN hash (a reset over SSH counts at once). Call with pin_lock held."""
+            before = settings.admin_pin_hash
+            settings.reload_pin()
+            if settings.admin_pin_hash != before:
+                trusted.clear()                # whoever knew the old PIN is no longer trusted
         pin_lock = threading.Lock()            # one PIN check at a time: no parallel guessing
         # Proves the first PIN is set by the robot's owner: in an owner-only file on the robot,
         # and announced once at start while no PIN exists (never logged: the log is open to the
@@ -164,7 +185,7 @@ class GrafReachula(ReachyMiniApp):
         def get_settings(request: Request):
             check_host(request)
             with pin_lock:
-                settings.reload_pin()
+                refresh_pin()
             return {**settings.public(), **live_status()}
 
         def device(request: Request) -> str:
@@ -223,7 +244,7 @@ class GrafReachula(ReachyMiniApp):
         def update_settings(update: SettingsUpdate, request: Request):
             check_write(request)
             with pin_lock:
-                settings.reload_pin()      # a PIN reset over SSH counts right away
+                refresh_pin()
                 check_pin_rules(update.changes, request)
                 new_pin = update.changes.pop("new_pin", None)
                 if isinstance(new_pin, str) and new_pin.strip():
@@ -231,10 +252,12 @@ class GrafReachula(ReachyMiniApp):
                         raise HTTPException(status_code=400, detail=f"The PIN needs at least {MIN_PIN_LENGTH} characters")
                     if not PIN_CHARS.match(new_pin.strip()):
                         raise HTTPException(status_code=400, detail="Use letters, digits and ASCII symbols only, no spaces")
-                    if new_pin.strip().lower() in WEAK_PINS or len(set(new_pin.strip())) == 1:
+                    if is_weak_pin(new_pin.strip()):
                         raise HTTPException(status_code=400, detail="That PIN is too easy to guess, choose another one")
                     settings.set_pin(new_pin.strip())
                     setup["code"] = new_setup_code()    # one use only, e.g. after a PIN reset
+                    trusted.clear()
+                    trusted.add(device(request))       # who just set the PIN knows it
                 before = settings.public()
                 settings.update(update.changes)
                 settings.save()
@@ -266,7 +289,7 @@ class GrafReachula(ReachyMiniApp):
             if stop_event.is_set():
                 return
         with pin_lock:
-            settings.reload_pin()
+            refresh_pin()
             code = None if settings.admin_pin_hash else setup["code"]
         if code:
             # Only at the very first start(s): whoever installed the robot is standing next to it

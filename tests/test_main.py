@@ -256,9 +256,28 @@ def test_the_backstop_spares_the_owner_who_used_the_pin(running_app):
                       headers={"x-graf-pin": "secret1"}).status_code == 200
 
 
-@pytest.mark.parametrize("weak", ["123456", "000000", "777777", "Passwort"])
+@pytest.mark.parametrize("weak", ["123456", "000000", "777777", "Passwort", "Halloween", "dracula",
+                                  "123456789", "345678", "987654"])
 def test_obvious_pins_are_refused(running_app, weak):
     assert set_first_pin(running_app, weak).status_code == 400
+
+
+def test_who_set_the_first_pin_is_trusted_and_a_reset_drops_all_trust(running_app):
+    from graf_reachula.settings import Settings
+
+    owner = client_from(running_app, "192.168.1.20")
+    assert owner.post("/api/settings", json={"changes": {"new_pin": "kuerbis7"}},
+                      headers={"x-graf-setup": running_app.app_settings.setup["code"]}).status_code == 200
+    for i in range(main_mod.GLOBAL_FAILURES):
+        client_from(running_app, f"10.0.0.{i + 1}").post(
+            "/api/settings", json={"changes": {"llm_model": "x"}}, headers={"x-graf-pin": "nope"})
+    assert owner.post("/api/settings", json={"changes": {"llm_model": "b"}},
+                      headers={"x-graf-pin": "kuerbis7"}).status_code == 200
+    on_disk = Settings.load()
+    on_disk.set_pin("fledermaus9")
+    on_disk.save()                     # PIN changed over SSH: the old trust is gone
+    assert owner.post("/api/settings", json={"changes": {"llm_model": "c"}},
+                      headers={"x-graf-pin": "fledermaus9"}).status_code == 429
 
 
 def test_a_local_proxy_does_not_count_as_this_computer(running_app):

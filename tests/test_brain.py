@@ -229,7 +229,7 @@ def test_tidy_strips_thinking_and_shortens_long_replies():
 def test_tidy_replaces_unsafe_replies_with_the_safe_line():
     from graf_reachula.brain import tidy
 
-    assert tidy("Let's talk about drugs!", "SAFE") == "SAFE"
+    assert tidy("Let's talk about cocaine!", "SAFE") == "SAFE"
     assert tidy("I only bite gummy bears! [move:laughing]", "SAFE") == "I only bite gummy bears! [move:laughing]"
 
 
@@ -266,11 +266,27 @@ def test_reply_cap_is_dropped_when_a_model_rejects_max_tokens():
 def test_harmless_words_pass_the_blocklist():
     from graf_reachula.brain import tidy
 
-    for line in ("Ich sehe eine Nacktschnecke im Kürbis!", "Your costume is a scary skeleton!"):
+    for line in ("Ich sehe eine Nacktschnecke im Kürbis!", "Your costume is a scary skeleton!",
+                 "Invisible to the naked eye, a ghost floats by!", "The old sexton rang the church bell.",
+                 "Das Skelett ist ganz nackt, es hat seine Knochen an!", "Ich könnte mich umbringen vor Lachen!",
+                 "That potion is not a drug, it's pumpkin juice!"):
         assert tidy(line, "SAFE") == line
+
+
+@pytest.mark.parametrize("line", ["Send me a Nacktfoto!", "Let's talk about sex.", "Show me naked pictures",
+                                  "Kokain ist toll", "Bring dich um"])
+def test_unsafe_lines_are_still_caught(line):
+    from graf_reachula.brain import tidy
+
+    assert tidy(line, "SAFE") == "SAFE"
 
 
 def test_a_reply_cut_off_by_the_token_limit_ends_with_a_full_sentence():
     brain = anthropic_brain([anthropic_response(
         "Boo! You are the spookiest pirate I have ever seen tonight, matey. And your parrot looks like it", "max_tokens")])
     assert brain.reply("what am I?", None) == "Boo! You are the spookiest pirate I have ever seen tonight, matey."
+
+
+def test_a_short_complete_sentence_survives_the_token_limit():
+    brain = anthropic_brain([anthropic_response("Ooh, a splendid witch! And your broom looks like it", "max_tokens")])
+    assert brain.reply("what am I?", None) == "Ooh, a splendid witch!"

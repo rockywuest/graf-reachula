@@ -19,9 +19,11 @@ MAX_REPLY_CHARS = 320   # two spoken sentences; longer replies outlast the voice
 THINKING = re.compile(r"<think>.*?(</think>|$)", re.IGNORECASE | re.DOTALL)
 # Last line of defence for a children's party, on top of the system prompt:
 # a reply with any of these is replaced by a fixed harmless line
+# (Kept narrow: "Nacktschnecke", "the naked eye", "a sexton" or "sich totlachen" must pass.)
 UNSAFE = re.compile(
-    r"\b(sex\w*|porn\w*|naked|nackt(e[mnrs]?)?|nude|suicid\w*|selbstmord\w*|kill yourself|"
-    r"bring dich um|umbringen|drugs?|drogen|cocaine|kokain|nazi\w*|hitler|fuck\w*|shit|schei(ß|ss)\w*)\b",
+    r"\b(sex|sexy|sexual\w*|sexuell\w*|porn\w*|nudes?|nackt(foto|bild|video)\w*|naked (photo|picture|pic)s?|"
+    r"suicid\w*|selbstmord\w*|kill yourself|bring dich um|cocaine|kokain|heroin|"
+    r"nazi\w*|hitler|fuck\w*|shit|schei(ß|ss)\w*)\b",
     re.IGNORECASE,
 )
 
@@ -37,17 +39,18 @@ def tidy(answer: str, safe_line: str) -> str:
         log.warning("Unsafe reply replaced by the safe line")
         return safe_line
     if len(answer) > MAX_REPLY_CHARS:
-        answer = full_sentences(answer[:MAX_REPLY_CHARS]) or answer[:MAX_REPLY_CHARS].rsplit(" ", 1)[0] + "…"
+        cut = answer[:MAX_REPLY_CHARS]
+        answer = full_sentences(cut) if len(full_sentences(cut)) > 40 else cut.rsplit(" ", 1)[0] + "…"
         answer = re.sub(r"\[[^\]]*$", "", answer).strip()   # no half effect tag
     return answer
 
 
 def full_sentences(text: str) -> str:
-    """The text up to its last complete sentence ("" if there is none worth speaking)."""
+    """The text up to its last complete sentence ("" if there is none)."""
     end = max(text.rfind(". "), text.rfind("! "), text.rfind("? "))
     if text.rstrip()[-1:] in ".!?":
         end = len(text.rstrip()) - 1
-    return text[:end + 1].strip() if end > 40 else ""
+    return text[:end + 1].strip() if end >= 0 else ""
 
 
 class Brain:
