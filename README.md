@@ -6,7 +6,7 @@ colorTo: red
 sdk: static
 pinned: false
 license: mit
-short_description: Spooky Reachy: a tiny ghost who says BOO! and tells tales
+short_description: "Spooky Reachy: a tiny ghost who says BOO! and tells tales"
 tags:
  - reachy_mini
  - reachy_mini_python_app
