@@ -127,6 +127,7 @@ spoken line).
 | *"Add a chat key and a speech-to-text key"* | Talking needs both. With xAI, one key covers both. |
 | *Current voice: … missing the permission …* | Edit the ElevenLabs key's permissions (see step 3), then **Save voice** again. |
 | A default model stopped working | Providers rename models often: type a current model name in the *Model* field. |
+| He went quiet in the middle of the party | Restart the app in the Reachy Mini dashboard (about a minute) instead of unplugging the robot. He switches a silent microphone back on by himself, and on start he switches the motors on, which stay off after a power cut. |
 
 Models without vision work too; the Count then just can't see.
 
@@ -226,6 +227,10 @@ nach dem Speichern zeigt die Seite nur noch „••••saved“, nie den Sch
 
 **Der Graf antwortet nicht?** Beim Namen rufen („Graf, …“). Fehler der Spracherkennung oder des Chat-Modells
 (etwa ein Schlüssel ohne passende Berechtigung) zeigt die Statuszeile auf der App-Seite.
+
+**Mitten in der Party verstummt?** Die App im Reachy-Mini-Dashboard neu starten (etwa eine Minute), statt den Roboter
+vom Strom zu nehmen. Ein verstummtes Mikrofon schaltet der Graf selbst wieder ein, und beim Start schaltet er die
+Motoren ein, die nach einem Stromausfall aus bleiben.
 
 Auf einer lauten Party antwortet der Graf nur, wenn man ihn ruft („Reachy“, „Graf“, „Count“). Auch Wörter wie
 „reach“ oder „count“ können ihn wecken. 

@@ -17,6 +17,7 @@ SPEECH_OVER_FLOOR = 2.0
 MAX_SPEECH = 6.0        # longer sounds (music) are cut into chunks; a call inside one is still found
 FLUSH_SECONDS = 0.05    # the mic delivers a sample every 16 ms, so draining "until empty" never ends
 FLUSH_READS = 20
+MIC_SILENT = 5.0        # seconds without a single sample: the mic has stopped, switch it on again
 
 # Whisper invents these on noise (it was trained on subtitled videos)
 PHANTOMS = re.compile(
@@ -116,19 +117,36 @@ class Ears:
         self.buffer = np.zeros(0, dtype=np.float32)
         self.vad.reset()
 
+    def _rearm(self):
+        """The mic delivers a sample every 16 ms; none for seconds means playback stopped it."""
+        with self.stage.lock:
+            if getattr(self.stage, "ears", None) is not self:
+                return   # a newer listener owns the mic
+            log.warning("Microphone went silent, switching it on again")
+            try:
+                self.robot.media.start_recording()
+            except Exception as e:
+                log.warning("Could not re-arm the microphone: %s", e)
+
     def listen(self, stop_event) -> np.ndarray | None:
         """Block until one utterance has been heard (or the app stops)."""
         frame_len = int(self.rate * FRAME_SECONDS)
+        last_sample = time.monotonic()
         while not stop_event.is_set():
             if self.stage.echoing():
                 # Don't transcribe the robot's own voice and sounds
                 self._flush()
                 time.sleep(0.05)
+                last_sample = time.monotonic()
                 continue
             samples = self.robot.media.get_audio_sample()
             if samples is None or len(samples) == 0:
+                if time.monotonic() - last_sample > MIC_SILENT:
+                    self._rearm()
+                    last_sample = time.monotonic()
                 time.sleep(0.01)
                 continue
+            last_sample = time.monotonic()
             mono = samples.mean(axis=1) if samples.ndim > 1 else samples
             self.buffer = np.concatenate([self.buffer, mono.astype(np.float32)])
             while len(self.buffer) >= frame_len:

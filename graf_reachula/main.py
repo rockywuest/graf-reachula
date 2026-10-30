@@ -101,6 +101,16 @@ def is_weak_pin(pin: str) -> bool:
     return False
 
 
+def wake(robot, stage):
+    """Motors on, head up. After a power cut the daemon starts with the motors off:
+    the Count would hang his head all night and none of his moves would show."""
+    try:
+        robot.enable_motors()
+    except Exception as e:
+        log.warning("Could not switch the motors on: %s", e)
+    stage.neutral()
+
+
 def switches_off(value) -> bool:
     return value is False or str(value).strip().lower() in ("false", "0", "off", "no")
 
@@ -283,7 +293,7 @@ class GrafReachula(ReachyMiniApp):
 
         # --- the show ---------------------------------------------------------------
 
-        stage.neutral()
+        wake(reachy_mini, stage)
         for line in voice.texts["intro"]:
             voice(line)
             if stop_event.is_set():

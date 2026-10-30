@@ -28,6 +28,7 @@ ECHO_WINDOW = 5    # seconds after he finished (speech-to-text needs a moment, t
 ECHO_OVERLAP = 0.9  # nearly all words his: a guest who answers ("yes, tell me a ghost story") repeats only some
 
 FILLER_MOVES = ("laughing", "surprised", "scared", "startled", "shocked")   # when the model forgets a move
+SOUNDS = ("heartbeat", "ghost", "door", "wind", "bells", "laugh")
 
 TAG = re.compile(r"\[(sound|move|scare)(?::([^\]]*))?\]", re.IGNORECASE)
 
@@ -64,6 +65,7 @@ class Talk:
                            safe_line=TEXTS[settings.language]["safe"])
         self.last_reply = 0.0
         self.last_spoken = ""
+        self.last_effects: dict[str, str] = {}   # the last sound and move, so the next differ
         self.stop_event = threading.Event()   # replaced by run()
         # Shown on the settings page; each one is cleared only by its own next success
         self.stt_error = ""
@@ -73,12 +75,31 @@ class Talk:
     def last_error(self) -> str:
         return " · ".join(e for e in (self.stt_error, self.chat_error) if e)
 
+    def vary(self, effects):
+        """Every answer gets a gesture, and no sound or move twice in a row.
+
+        At the party the model chose "ghost" for nearly every reply and once "dying" three times running.
+        """
+        known = self.stage.moves
+        if not any(kind == "scare" or (kind == "move" and arg in known) for kind, arg in effects):
+            # A Count who only talks looks stiff (a move this robot lacks would show nothing)
+            effects = [(k, a) for k, a in effects if k != "move"] + [("move", "")]
+        varied = []
+        for kind, arg in effects:
+            if kind == "move":
+                if arg not in known or arg == self.last_effects.get("move"):
+                    fresh = [m for m in FILLER_MOVES if m in known and m != self.last_effects.get("move")]
+                    if not fresh:
+                        continue   # no other move on this robot: rather none than the same again
+                    arg = random.choice(fresh)
+            elif kind == "sound" and arg == self.last_effects.get("sound"):
+                arg = random.choice([s for s in SOUNDS if s != arg])
+            if kind in ("sound", "move"):
+                self.last_effects[kind] = arg
+            varied.append((kind, arg))
+        return varied
+
     def perform(self, effects):
-        if not any(kind in ("move", "scare") for kind, _ in effects):
-            # A Count who only talks looks stiff: every answer gets a gesture
-            fillers = [m for m in FILLER_MOVES if m in self.stage.moves]
-            if fillers:
-                effects = [*effects, ("move", random.choice(fillers))]
         for kind, arg in effects:
             if kind == "sound":
                 self.stage.play_sound(arg)
@@ -115,6 +136,7 @@ class Talk:
                 self.haunt.lurking = False
             # Without scares, don't offer the model a [scare] tag
             self.brain.system_prompt = system_prompt(self.settings.language, self.settings.scares)
+            started = time.monotonic()
             try:
                 reply = self.brain.reply(text, frame_as_jpeg_b64(self.robot))
             except Exception as e:
@@ -132,7 +154,8 @@ class Talk:
                 return
             self.chat_error = ""
             spoken, effects = split_effects(reply)
-            log.info("Count answers (%d words) %s", len(spoken.split()), effects)
+            effects = self.vary(effects)
+            log.info("Count answers (%d words, %.1f s) %s", len(spoken.split()), time.monotonic() - started, effects)
             log.debug("Count: %r", spoken)
             self.last_spoken = spoken
             self.voice(spoken)

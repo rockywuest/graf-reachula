@@ -22,7 +22,7 @@ THINKING = re.compile(r"<think>.*?(</think>|$)", re.IGNORECASE | re.DOTALL)
 # (Kept narrow: "Nacktschnecke", "the naked eye", "a sexton" or "sich totlachen" must pass.)
 UNSAFE = re.compile(
     r"\b(sex|sexy|sexual\w*|sexuell\w*|porn\w*|nudes?|nackt(foto|bild|video)\w*|naked (photo|picture|pic)s?|"
-    r"suicid\w*|selbstmord\w*|kill yourself|bring dich um|cocaine|kokain|heroin|"
+    r"suicid\w*|selbstmord\w*|kill yourself|bring dich um|cocaine|kokain|heroin|drugs|drogen\w*|(ge)?kiff\w*|"
     r"nazi\w*|hitler|fuck\w*|shit|schei(ß|ss)\w*)\b",
     re.IGNORECASE,
 )

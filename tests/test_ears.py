@@ -203,3 +203,42 @@ def test_flush_ends_although_the_microphone_never_stops(stage):
     ears._flush()
     assert _time.monotonic() - start < 0.5
     assert EndlessMedia.reads <= 20
+
+
+def test_a_silent_microphone_is_switched_on_again(stage, monkeypatch):
+    """Playback can stop the robot's mic; seconds without one sample means it must be re-armed."""
+    monkeypatch.setattr(ears, "MIC_SILENT", 0.05)
+    robot = FakeRobot()
+    listener = Ears.__new__(Ears)
+    listener.robot, listener.stage, listener.rate = robot, stage, 16000
+    listener.vad, listener.buffer = EnergyVAD(16000), np.zeros(0, dtype=np.float32)
+    stage.echoing = lambda: False
+    stage.ears = listener
+    stop = threading.Event()
+    threading.Timer(0.3, stop.set).start()
+    assert listener.listen(stop) is None
+    assert robot.media.recording, "the mic must have been switched on again"
+
+
+def test_only_the_current_listener_re_arms_the_mic(stage):
+    robot = FakeRobot()
+    old = Ears.__new__(Ears)
+    old.robot, old.stage = robot, stage
+    stage.ears = object()   # a newer listener
+    old._rearm()
+    assert not robot.media.recording
+
+
+def test_the_mic_is_left_alone_while_the_count_speaks(stage, monkeypatch):
+    """While he speaks the mic is flushed, not read: that silence must not count as a dead mic."""
+    monkeypatch.setattr(ears, "MIC_SILENT", 0.05)
+    robot = FakeRobot()
+    listener = Ears.__new__(Ears)
+    listener.robot, listener.stage, listener.rate = robot, stage, 16000
+    listener.vad, listener.buffer = EnergyVAD(16000), np.zeros(0, dtype=np.float32)
+    stage.echoing = lambda: True
+    stage.ears = listener
+    stop = threading.Event()
+    threading.Timer(0.3, stop.set).start()
+    assert listener.listen(stop) is None
+    assert not robot.media.recording

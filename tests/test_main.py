@@ -310,3 +310,23 @@ def test_play_and_voice_test_buttons(running_app):
     assert running_app.post("/api/play/say/test").status_code == 200
     assert running_app.post("/api/play/sound/ghost").status_code == 200
     time.sleep(0.4)
+
+
+def test_wake_switches_the_motors_on_before_lifting_the_head(stage):
+    from unittest.mock import MagicMock
+    from graf_reachula.main import wake
+
+    robot = MagicMock()
+    robot.enable_motors.side_effect = lambda: stage.calls.append("motors on")
+    wake(robot, stage)
+    assert stage.calls == ["motors on", "neutral"]
+
+
+def test_wake_still_lifts_the_head_if_the_motors_answer_with_an_error(stage):
+    from unittest.mock import MagicMock
+    from graf_reachula.main import wake
+
+    robot = MagicMock()
+    robot.enable_motors.side_effect = RuntimeError("daemon busy")
+    wake(robot, stage)
+    assert stage.calls == ["neutral"]

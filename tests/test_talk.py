@@ -67,6 +67,7 @@ def make_talk(robot, stage, wake_word=True):
     t.brain.reply.return_value = "Hello [sound:ghost] friend"
     t.last_reply = 0.0
     t.last_spoken = ""
+    t.last_effects = {}
     t.stt_error = t.chat_error = ""
     t.stop_event = threading.Event()
     return t
@@ -231,3 +232,40 @@ def test_a_reply_with_its_own_move_gets_no_extra_one(robot, stage):
     t.brain.reply.return_value = "Grr [move:angry]"
     t.handle("Reachy, hello")
     assert [c for c in stage.calls if c[0] == "move"] == [("move", "angry")]
+
+
+def test_the_same_sound_or_move_never_comes_twice_in_a_row(robot, stage):
+    # At the party: "ghost" in nearly every reply, "dying" three times running
+    stage.moves = {m: object() for m in ("laughing", "surprised", "scared", "dying")}
+    t = make_talk(robot, stage)
+    t.brain.reply.return_value = "Boo [sound:ghost] [move:dying]"
+    for _ in range(6):
+        t.handle("Reachy, again")
+    sounds = [c[1] for c in stage.calls if c[0] == "sound"]
+    moves = [c[1] for c in stage.calls if c[0] == "move"]
+    assert len(sounds) == len(moves) == 6
+    assert all(a != b for a, b in zip(sounds, sounds[1:]))
+    assert all(a != b for a, b in zip(moves, moves[1:]))
+
+
+def test_a_robot_without_moves_still_answers_with_its_sound(robot, stage):
+    t = make_talk(robot, stage)
+    t.handle("Reachy, hello")
+    assert stage.calls == [("sound", "ghost")]
+
+
+def test_a_move_the_robot_lacks_is_replaced_by_one_it_has(robot, stage):
+    stage.moves = {"laughing": object()}
+    t = make_talk(robot, stage)
+    t.brain.reply.return_value = "Grr [move:angry]"
+    t.handle("Reachy, hello")
+    assert [c for c in stage.calls if c[0] == "move"] == [("move", "laughing")]
+
+
+def test_with_a_single_move_it_is_not_repeated(robot, stage):
+    stage.moves = {"laughing": object()}
+    t = make_talk(robot, stage)
+    t.brain.reply.return_value = "Ha [move:laughing]"
+    t.handle("Reachy, hello")
+    t.handle("Reachy, again")
+    assert [c for c in stage.calls if c[0] == "move"] == [("move", "laughing")]

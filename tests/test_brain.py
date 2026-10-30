@@ -274,7 +274,9 @@ def test_harmless_words_pass_the_blocklist():
 
 
 @pytest.mark.parametrize("line", ["Send me a Nacktfoto!", "Let's talk about sex.", "Show me naked pictures",
-                                  "Kokain ist toll", "Bring dich um"])
+                                  "Kokain ist toll", "Bring dich um", "Let's take some drugs!",
+                                  "Drogen sind cool", "Wir gehen kiffen", "Der Drogenhandel blüht",
+                                  "Er hat gekifft"])
 def test_unsafe_lines_are_still_caught(line):
     from graf_reachula.brain import tidy
 
