@@ -20,7 +20,7 @@ THINKING = re.compile(r"<think>.*?(</think>|$)", re.IGNORECASE | re.DOTALL)
 # Last line of defence for a children's party, on top of the system prompt:
 # a reply with any of these is replaced by a fixed harmless line
 UNSAFE = re.compile(
-    r"\b(sex\w*|porn\w*|naked|nackt\w*|nude|suicid\w*|selbstmord\w*|kill yourself|"
+    r"\b(sex\w*|porn\w*|naked|nackt(e[mnrs]?)?|nude|suicid\w*|selbstmord\w*|kill yourself|"
     r"bring dich um|umbringen|drugs?|drogen|cocaine|kokain|nazi\w*|hitler|fuck\w*|shit|schei(ß|ss)\w*)\b",
     re.IGNORECASE,
 )
@@ -37,12 +37,17 @@ def tidy(answer: str, safe_line: str) -> str:
         log.warning("Unsafe reply replaced by the safe line")
         return safe_line
     if len(answer) > MAX_REPLY_CHARS:
-        # Cut after the last full sentence that fits; tags inside it survive
-        cut = answer[:MAX_REPLY_CHARS]
-        end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
-        answer = cut[:end + 1] if end > 40 else cut.rsplit(" ", 1)[0] + "…"
+        answer = full_sentences(answer[:MAX_REPLY_CHARS]) or answer[:MAX_REPLY_CHARS].rsplit(" ", 1)[0] + "…"
         answer = re.sub(r"\[[^\]]*$", "", answer).strip()   # no half effect tag
     return answer
+
+
+def full_sentences(text: str) -> str:
+    """The text up to its last complete sentence ("" if there is none worth speaking)."""
+    end = max(text.rfind(". "), text.rfind("! "), text.rfind("? "))
+    if text.rstrip()[-1:] in ".!?":
+        end = len(text.rstrip()) - 1
+    return text[:end + 1].strip() if end > 40 else ""
 
 
 class Brain:
@@ -122,7 +127,11 @@ class Brain:
             response = self.client.messages.create(**kwargs)
         if response.stop_reason == "refusal":
             return ""
-        return " ".join(b.text for b in response.content if b.type == "text").strip()
+        text = " ".join(b.text for b in response.content if b.type == "text").strip()
+        if response.stop_reason == "max_tokens":
+            # Cut off mid-sentence: speak only what is complete
+            text = full_sentences(text)
+        return text
 
     def _ask_openai(self, text: str, image: str | None) -> str:
         if image:

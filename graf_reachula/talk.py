@@ -85,7 +85,8 @@ class Talk:
             return False
         words = {w for w in re.findall(r"\w{4,}", text.lower())}
         spoken = {w for w in re.findall(r"\w{4,}", self.last_spoken.lower())}
-        return bool(words) and len(words & spoken) / len(words) > ECHO_OVERLAP
+        # Short calls ("Tell me a ghost story!") are guests answering his offer, not his echo
+        return len(words & spoken) >= 4 and len(words & spoken) / len(words) > ECHO_OVERLAP
 
     def handle(self, text: str):
         if self.is_echo(text):

@@ -43,6 +43,10 @@ MAX_TRACKED_DEVICES = 256
 GLOBAL_FAILURES, GLOBAL_WINDOW, GLOBAL_LOCKOUT = 20, 600, 60
 FORWARD_HEADERS = ("forwarded", "x-forwarded-for", "x-real-ip", "via")
 LOOPBACK = {"127.0.0.1", "::1"}
+# Guessed first; the guess counters start over when the app restarts, which anyone on
+# the network can trigger through the robot's control service
+WEAK_PINS = {"123456", "1234567", "12345678", "000000", "111111", "654321", "121212", "112233",
+             "123123", "123321", "666666", "696969", "password", "passwort", "qwertz", "qwerty"}
 PIN_CHARS = re.compile(r"^[\x21-\x7e]+$")   # printable ASCII: it travels in an HTTP header
 TALK_RELATED = {"talk", "language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
                 "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "elevenlabs_api_key"}
@@ -107,6 +111,7 @@ class GrafReachula(ReachyMiniApp):
         pin_guard: dict[str, dict] = {}
         recent_failures: list[float] = []
         global_lock = {"until": 0.0}
+        trusted: set[str] = set()              # devices that sent the right PIN in this run
         pin_lock = threading.Lock()            # one PIN check at a time: no parallel guessing
         # Proves the first PIN is set by the robot's owner: in an owner-only file on the robot,
         # and announced once at start while no PIN exists (never logged: the log is open to the
@@ -194,7 +199,10 @@ class GrafReachula(ReachyMiniApp):
             if not sensitive:
                 return
             guard = pin_guard.get(device(request))
-            until = max(guard["locked_until"] if guard else 0.0, global_lock["until"])
+            until = guard["locked_until"] if guard else 0.0
+            if device(request) not in trusted and device(request) not in LOOPBACK:
+                # The backstop must not lock out the owner, who has proven the PIN before
+                until = max(until, global_lock["until"])
             if time.time() < until:
                 wait = int(until - time.time()) + 1
                 raise HTTPException(status_code=429, detail=f"Too many wrong guesses, try again in {wait} s")
@@ -208,6 +216,8 @@ class GrafReachula(ReachyMiniApp):
             elif not hmac.compare_digest(request.headers.get("x-graf-setup", "").strip().encode(), setup["code"].encode()):
                 wrong_guess(request, "Enter the setup code from setup-code.txt on the robot (see the README)")
             pin_guard.pop(device(request), None)
+            if settings.admin_pin_hash and len(trusted) < MAX_TRACKED_DEVICES:
+                trusted.add(device(request))
 
         @self.settings_app.post("/api/settings")
         def update_settings(update: SettingsUpdate, request: Request):
@@ -221,6 +231,8 @@ class GrafReachula(ReachyMiniApp):
                         raise HTTPException(status_code=400, detail=f"The PIN needs at least {MIN_PIN_LENGTH} characters")
                     if not PIN_CHARS.match(new_pin.strip()):
                         raise HTTPException(status_code=400, detail="Use letters, digits and ASCII symbols only, no spaces")
+                    if new_pin.strip().lower() in WEAK_PINS or len(set(new_pin.strip())) == 1:
+                        raise HTTPException(status_code=400, detail="That PIN is too easy to guess, choose another one")
                     settings.set_pin(new_pin.strip())
                     setup["code"] = new_setup_code()    # one use only, e.g. after a PIN reset
                 before = settings.public()

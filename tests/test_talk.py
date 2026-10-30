@@ -167,6 +167,7 @@ def test_a_guest_answering_his_offer_is_not_taken_for_an_echo(robot, stage):
     t.last_spoken = "Shall I tell you a ghost story, or guess your costume?"
     t.last_reply = time.time()
     assert not t.is_echo("Yes! Tell me a ghost story, Count!")
+    assert not t.is_echo("Tell me a ghost story!")
     assert t.is_echo("Shall I tell you a ghost story or guess your costume")
 
 

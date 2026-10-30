@@ -243,6 +243,24 @@ def test_many_addresses_guessing_hit_the_global_backstop(running_app):
     assert owner.post("/api/settings", json={"changes": {"talk": False}}).status_code == 200
 
 
+def test_the_backstop_spares_the_owner_who_used_the_pin(running_app):
+    set_first_pin(running_app, "secret1")
+    owner = client_from(running_app, "192.168.1.20")
+    assert owner.post("/api/settings", json={"changes": {"llm_model": "a"}},
+                      headers={"x-graf-pin": "secret1"}).status_code == 200
+    for i in range(10):
+        guest = client_from(running_app, f"10.0.0.{i + 1}")
+        for _ in range(3):
+            guest.post("/api/settings", json={"changes": {"llm_model": "x"}}, headers={"x-graf-pin": "nope"})
+    assert owner.post("/api/settings", json={"changes": {"llm_model": "b"}},
+                      headers={"x-graf-pin": "secret1"}).status_code == 200
+
+
+@pytest.mark.parametrize("weak", ["123456", "000000", "777777", "Passwort"])
+def test_obvious_pins_are_refused(running_app, weak):
+    assert set_first_pin(running_app, weak).status_code == 400
+
+
 def test_a_local_proxy_does_not_count_as_this_computer(running_app):
     local = client_from(running_app, "127.0.0.1", host="localhost:8042")
     assert local.post("/api/settings", json={"changes": {"new_pin": "471100"}},

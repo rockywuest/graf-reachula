@@ -261,3 +261,16 @@ def test_reply_cap_is_dropped_when_a_model_rejects_max_tokens():
     assert brain.reply("hi", None) == "Boo!"
     assert "max_tokens" in calls[0] and "max_tokens" not in calls[1]
     assert brain.cap_tokens is False
+
+
+def test_harmless_words_pass_the_blocklist():
+    from graf_reachula.brain import tidy
+
+    for line in ("Ich sehe eine Nacktschnecke im Kürbis!", "Your costume is a scary skeleton!"):
+        assert tidy(line, "SAFE") == line
+
+
+def test_a_reply_cut_off_by_the_token_limit_ends_with_a_full_sentence():
+    brain = anthropic_brain([anthropic_response(
+        "Boo! You are the spookiest pirate I have ever seen tonight, matey. And your parrot looks like it", "max_tokens")])
+    assert brain.reply("what am I?", None) == "Boo! You are the spookiest pirate I have ever seen tonight, matey."
