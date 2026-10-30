@@ -68,7 +68,7 @@ class Talk:
     def handle(self, text: str):
         addressed = bool(ADDRESSED.search(text))
         if self.settings.wake_word and not addressed and time.time() - self.last_reply > FOLLOW_UP:
-            log.info("Not addressed, ignored: %r", text)
+            log.debug("Not addressed, ignored")
             return
         log.info("Heard: %r", text)
         self.haunt.conversation_active.set()

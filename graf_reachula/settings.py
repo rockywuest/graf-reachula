@@ -11,16 +11,16 @@ SETTINGS_PATH = Path(os.getenv("GRAF_REACHULA_SETTINGS", Path.home() / ".config"
 # so one client covers them all with a different base URL.
 LLM_PROVIDERS = {
     "anthropic": {"base_url": None, "model": "claude-opus-5-5", "env": "ANTHROPIC_API_KEY"},
-    "openai": {"base_url": None, "model": "gpt-5-mini", "env": "OPENAI_API_KEY"},
+    "openai": {"base_url": None, "model": "gpt-5.6-terra", "env": "OPENAI_API_KEY"},
     "gemini": {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-               "model": "gemini-2.5-flash", "env": "GEMINI_API_KEY"},
+               "model": "gemini-3.5-flash-lite", "env": "GEMINI_API_KEY"},
     "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": "anthropic/claude-opus-5.5",
                    "env": "OPENROUTER_API_KEY"},
     "mistral": {"base_url": "https://api.mistral.ai/v1", "model": "mistral-medium-latest",
                 "env": "MISTRAL_API_KEY"},
-    "groq": {"base_url": "https://api.groq.com/openai/v1", "model": "llama-3.3-70b-versatile",
+    "groq": {"base_url": "https://api.groq.com/openai/v1", "model": "qwen/qwen3.8-27b",
              "env": "GROQ_API_KEY"},
-    "ollama": {"base_url": "http://localhost:11434/v1", "model": "llama3.2-vision", "env": None},
+    "ollama": {"base_url": "http://localhost:11434/v1", "model": "gemma3", "env": None},
     "custom": {"base_url": "", "model": "", "env": None},
 }
 

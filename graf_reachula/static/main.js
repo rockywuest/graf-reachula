@@ -29,7 +29,7 @@ function show(settings) {
     fillSelect("stt_provider", settings.stt_providers);
     for (const t of TOGGLES) $(t).checked = !!settings[t];
     for (const f of FIELDS) $(f).value = settings[f] ?? "";
-    let text = "The Count haunts silently (no talking).";
+    let text = "The Count haunts with sounds and moves (talking is off).";
     if (settings.talking) text = "🧛 The Count is listening.";
     else if (settings.talk_error) text = "Talking failed: " + settings.talk_error;
     else if (settings.talk && !settings.can_talk) text = "Add a chat key and a speech-to-text key to make the Count talk.";
