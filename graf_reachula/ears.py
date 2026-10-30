@@ -71,7 +71,9 @@ class EnergyVAD:
         return None
 
 
-# Names the speech recognition should expect (xAI supports such hints)
+FALLBACK_STT_MODEL = "gpt-4o-mini-transcribe"
+
+# Names the speech recognition should expect (xAI and ElevenLabs support such hints)
 KEYTERMS = ("Reachy", "Reachula", "Count", "Graf")
 
 
@@ -136,21 +138,33 @@ class Ears:
         elif self.provider == "elevenlabs":
             text = self._transcribe_elevenlabs(wav.getvalue())
         else:
-            # gpt-transcribe takes a list of languages instead of the older single `language`
-            if self.model.startswith("gpt-transcribe"):
-                language = {"extra_body": {"languages": [self.language]}}
-            else:
-                language = {"language": self.language}
-            result = self.client.audio.transcriptions.create(
-                model=self.model,
-                file=("speech.wav", wav.getvalue(), "audio/wav"),
-                **language,
-            )
-            text = (result.text or "").strip()
+            try:
+                text = self._transcribe_openai(wav.getvalue())
+            except Exception as e:
+                # gpt-transcribe is new; if this account or endpoint rejects it, fall back to
+                # the previous model (served until February 2027) instead of going deaf
+                if not self.model.startswith("gpt-transcribe") or getattr(e, "status_code", None) not in (400, 403, 404, 422):
+                    raise
+                log.warning("%s rejected (%s); using %s", self.model, e, FALLBACK_STT_MODEL)
+                self.model = FALLBACK_STT_MODEL
+                text = self._transcribe_openai(wav.getvalue())
         if PHANTOMS.match(text):
             log.info("Ignored phantom transcript: %r", text)
             return ""
         return text
+
+    def _transcribe_openai(self, wav: bytes) -> str:
+        # gpt-transcribe takes a list of languages instead of the older single `language`
+        if self.model.startswith("gpt-transcribe"):
+            language = {"extra_body": {"languages": [self.language]}}
+        else:
+            language = {"language": self.language}
+        result = self.client.audio.transcriptions.create(
+            model=self.model,
+            file=("speech.wav", wav, "audio/wav"),
+            **language,
+        )
+        return (result.text or "").strip()
 
     def _transcribe_xai(self, wav: bytes) -> str:
         """xAI's batch speech-to-text (POST /v1/stt, multipart, file last)."""

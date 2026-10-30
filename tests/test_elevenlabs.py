@@ -95,3 +95,28 @@ def test_gpt_transcribe_gets_language_list():
     e.transcribe(np.zeros(16000, np.float32) + 0.1)
     kwargs = e.client.audio.transcriptions.create.call_args.kwargs
     assert kwargs["extra_body"] == {"languages": ["de"]} and "language" not in kwargs
+
+
+def test_elevenlabs_failure_pauses_it_instead_of_retrying_every_line(monkeypatch):
+    s = Settings(tts_provider="elevenlabs", elevenlabs_api_key="el-key", elevenlabs_voice="V")
+    failing = MagicMock(side_effect=RuntimeError("timeout"))
+    monkeypatch.setattr(voice_mod, "synthesize_elevenlabs", failing)
+    monkeypatch.setattr(voice_mod, "synthesize", lambda text, v: (np.zeros(10, np.float32), 24000))
+    v = Voice(SimpleNamespace(play_audio=lambda *a: None), s)
+    v("one")
+    v("two")
+    v("three")
+    assert failing.call_count == 1
+
+
+def test_gpt_transcribe_rejection_falls_back_to_previous_model():
+    class Rejected(Exception):
+        status_code = 400
+
+    e = Ears.__new__(Ears)
+    e.provider, e.model, e.language, e.rate = "openai", "gpt-transcribe", "en", 16000
+    e.client = MagicMock()
+    e.client.audio.transcriptions.create.side_effect = [Rejected("unknown model"), SimpleNamespace(text="Hello Count")]
+    assert e.transcribe(np.zeros(16000, np.float32) + 0.1) == "Hello Count"
+    assert e.model == "gpt-4o-mini-transcribe"
+    assert e.client.audio.transcriptions.create.call_args.kwargs["language"] == "en"

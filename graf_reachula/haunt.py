@@ -48,13 +48,15 @@ class Haunt:
         log.info("BOO!")
         self.last_scare = time.time()
         self.lurking = False
+        # Prepare the line first: a slow voice service must not keep the head up
+        line = self.say.render(random.choice(self.say.texts["after_scare"])) if self.say else None
         with self.stage.lock:
             self.stage.jump()
             self.stage.play_sound("boo")
             if "laughing" in self.stage.moves:
                 self.stage.play_move("laughing")
             if self.say:
-                self.say(random.choice(self.say.texts["after_scare"]))
+                self.say.play(line)
             self.stage.neutral()
 
     def ambient(self):

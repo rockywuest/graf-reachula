@@ -8,6 +8,8 @@ If ElevenLabs fails (no credits, no network), the Count falls back to Edge.
 import asyncio
 import io
 import logging
+import threading
+import time
 from collections import OrderedDict
 
 import numpy as np
@@ -22,6 +24,8 @@ RATE = "-8%"
 PITCH = "-12Hz"
 ELEVENLABS_RATE = 16000
 CACHE_SIZE = 32     # the intro and scare lines repeat all evening; don't pay for them twice
+TIMEOUT = 8.0       # seconds; a party can't wait longer for one sentence
+COOLDOWN = 300      # after an ElevenLabs failure, use the free voice for this long
 
 
 async def _synthesize(text: str, voice: str) -> bytes:
@@ -50,7 +54,7 @@ def synthesize_elevenlabs(text: str, api_key: str, voice: str, model: str, langu
     """ElevenLabs TTS as raw 16 kHz PCM (signed 16-bit little-endian mono)."""
     import httpx
 
-    client = client or httpx.Client(timeout=30.0)
+    client = client or httpx.Client(timeout=TIMEOUT)
     response = client.post(
         f"{ELEVENLABS_URL}/text-to-speech/{voice}",
         params={"output_format": f"pcm_{ELEVENLABS_RATE}"},
@@ -91,42 +95,54 @@ class Voice:
         self.cache: OrderedDict = OrderedDict()
         self.http = None
         self.picked_voice: dict[str, str] = {}   # api key -> voice ID chosen for it
+        self.lock = threading.Lock()              # the haunt, talk and main threads all speak
+        self.eleven_paused_until = 0.0
 
     @property
     def texts(self) -> dict:
         return TEXTS[self.settings.language]
 
-    def _render(self, text: str) -> tuple[np.ndarray, int] | None:
-        tts = self.settings.tts()
-        if tts["provider"] == "elevenlabs":
-            try:
-                if self.http is None:
-                    import httpx
+    def _elevenlabs(self, text: str, tts: dict) -> tuple[np.ndarray, int]:
+        with self.lock:
+            if self.http is None:
+                import httpx
 
-                    self.http = httpx.Client(timeout=30.0)
-                voice = tts["voice"]
-                if not voice:
-                    if tts["api_key"] not in self.picked_voice:
-                        self.picked_voice[tts["api_key"]] = pick_elevenlabs_voice(self.http, tts["api_key"])
-                    voice = self.picked_voice[tts["api_key"]]
-                key = (text, voice, tts["model"], self.settings.language)
-                if key in self.cache:
-                    self.cache.move_to_end(key)
-                    return self.cache[key]
-                result = synthesize_elevenlabs(text, tts["api_key"], voice, tts["model"],
-                                               self.settings.language, client=self.http)
-                self.cache[key] = result
-                if len(self.cache) > CACHE_SIZE:
-                    self.cache.popitem(last=False)
-                return result
+                self.http = httpx.Client(timeout=TIMEOUT)
+            voice = tts["voice"]
+            if not voice:
+                if tts["api_key"] not in self.picked_voice:
+                    self.picked_voice[tts["api_key"]] = pick_elevenlabs_voice(self.http, tts["api_key"])
+                voice = self.picked_voice[tts["api_key"]]
+            key = (text, voice, tts["model"], self.settings.language)
+            cached = self.cache.get(key)
+            if cached is not None:
+                self.cache.move_to_end(key)
+                return cached
+            client = self.http
+        result = synthesize_elevenlabs(text, tts["api_key"], voice, tts["model"],
+                                       self.settings.language, client=client)
+        with self.lock:
+            self.cache[key] = result
+            while len(self.cache) > CACHE_SIZE:
+                self.cache.popitem(last=False)
+        return result
+
+    def render(self, text: str) -> tuple[np.ndarray, int] | None:
+        """Turn a line into audio (without playing it)."""
+        tts = self.settings.tts()
+        if tts["provider"] == "elevenlabs" and time.time() >= self.eleven_paused_until:
+            try:
+                return self._elevenlabs(text, tts)
             except Exception as e:
-                # Out of credits or offline: the party goes on with the free voice
-                log.warning("ElevenLabs failed (%s); using the Edge voice", e)
+                # Out of credits, bad key or offline: the party goes on with the free voice
+                log.warning("ElevenLabs failed (%s); using the Edge voice for %d minutes", e, COOLDOWN // 60)
+                self.eleven_paused_until = time.time() + COOLDOWN
         return synthesize(text, tts["edge_voice"])
 
+    def play(self, rendered):
+        if rendered is not None:
+            self.stage.play_audio(*rendered)
+
     def __call__(self, text: str):
-        if not text.strip():
-            return
-        result = self._render(text)
-        if result is not None:
-            self.stage.play_audio(*result)
+        if text.strip():
+            self.play(self.render(text))
