@@ -61,10 +61,12 @@ def make_talk(robot, stage, wake_word=True):
     t.settings = Settings(wake_word=wake_word, language="en")
     t.voice = MagicMock()
     t.voice.texts = {"error": "ERROR LINE"}
-    t.haunt = SimpleNamespace(conversation_active=threading.Event(), jump_scare=MagicMock())
+    t.haunt = SimpleNamespace(conversation_active=threading.Event(), jump_scare=MagicMock(), lurking=False)
     t.brain = MagicMock()
     t.brain.reply.return_value = "Hello [sound:ghost] friend"
     t.last_reply = 0.0
+    t.last_spoken = ""
+    t.last_error = ""
     t.stop_event = threading.Event()
     return t
 

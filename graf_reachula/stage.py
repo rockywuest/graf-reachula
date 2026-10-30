@@ -75,10 +75,6 @@ class Stage:
                 media.push_audio_sample(frames)
                 time.sleep(len(audio) / out_rate + 0.2)
                 media.stop_playing()
-                # On the robot, playback and recording share one GStreamer
-                # pipeline: stopping playback also stops the microphone
-                if self.recording:
-                    media.start_recording()
             finally:
                 self._done()
 
@@ -115,9 +111,16 @@ class Stage:
                 self._done()
 
     def _done(self):
+        # On the robot, playback and recording share one GStreamer pipeline:
+        # stopping playback (or a sound played along with a move) can stop the microphone
+        if self.recording:
+            try:
+                self.robot.media.start_recording()
+            except Exception as e:
+                log.warning("Could not re-arm the microphone: %s", e)
         self.speaking = False
         self.last_performance = time.time()
-        self.quiet_from = self.last_performance + 0.8
+        self.quiet_from = self.last_performance + 1.5
 
     # -- poses --------------------------------------------------------------------
 

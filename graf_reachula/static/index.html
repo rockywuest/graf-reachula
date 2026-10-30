@@ -37,6 +37,16 @@
         </section>
 
         <section>
+            <h2>🔒 Settings PIN</h2>
+            <p class="hint">Guests on your Wi-Fi can open this page too. Set a PIN, and providers, keys and the voice
+                can only be changed with it. Sounds, moves and language stay open to everyone.</p>
+            <p id="pin-state" class="status-line"></p>
+            <label>Your PIN <input id="pin" type="password" autocomplete="current-password" placeholder="needed for locked changes"></label>
+            <label>New PIN <input id="new_pin" type="password" autocomplete="new-password" placeholder="set or change the PIN"></label>
+            <button id="save-pin">Save PIN</button>
+        </section>
+
+        <section>
             <h2>🎙️ Voice <span class="hint">(optional upgrade)</span></h2>
             <p class="hint">Free Microsoft Edge voice by default. With your own ElevenLabs key the Count gets a
                 real theatrical vampire voice; if ElevenLabs fails, he falls back to the free voice.
@@ -65,7 +75,7 @@
                 Each answer costs a fraction of a cent.</p>
             <p class="hint">Without keys the Count haunts with sounds and moves and speaks only his fixed lines. With a chat
                 model and a speech-to-text key he talks, sees costumes through the camera and tells ghost stories.
-                Keys are stored only on your robot. This page has no password: use it only on a network you trust.</p>
+                Keys are stored only on your robot and are never shown again. Set a PIN above before guests arrive.</p>
             <label class="row"><input type="checkbox" id="talk"> Talk</label>
             <label class="row"><input type="checkbox" id="wake_word"> Only answer when called by name
                 (“Reachy”, “Count”, “Graf”)</label>

@@ -1,7 +1,10 @@
 """User settings, stored on the robot and editable from the app's web page."""
 
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import threading
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
@@ -75,6 +78,8 @@ class Settings:
     elevenlabs_voice: str = ""             # empty: the Count's default voice
     elevenlabs_model: str = ""
 
+    admin_pin_hash: str = ""               # "salt$hash"; set via set_pin(), never via update()
+
     # -- resolved values --------------------------------------------------
 
     @staticmethod
@@ -86,29 +91,38 @@ class Settings:
             return ""
         return os.getenv(preset["env"], "")
 
+    @staticmethod
+    def _base_url(provider: str, preset: dict, typed: str) -> str | None:
+        # Only "custom" and "ollama" have a user-chosen address; every other provider
+        # always talks to its own endpoint, so nobody can redirect it via the page
+        if provider in ("custom", "ollama"):
+            return typed or preset["base_url"]
+        return preset["base_url"]
+
     def llm(self) -> dict:
         preset = LLM_PROVIDERS.get(self.llm_provider, LLM_PROVIDERS["custom"])
+        base_url = self._base_url(self.llm_provider, preset, self.llm_base_url)
         return {
             "provider": self.llm_provider,
             "model": self.llm_model or preset["model"],
-            "base_url": self.llm_base_url or preset["base_url"],
-            "api_key": self.llm_api_key or self._env_key(preset, self.llm_base_url)
+            "base_url": base_url,
+            "api_key": self.llm_api_key or self._env_key(preset, base_url)
                        or ("ollama" if self.llm_provider == "ollama" else ""),
         }
 
     def stt(self) -> dict:
         preset = STT_PROVIDERS.get(self.stt_provider, STT_PROVIDERS["custom"])
-        key = self.stt_api_key or self._env_key(preset, self.stt_base_url)
-        same_endpoint = (self.stt_provider == self.llm_provider
-                         and (self.stt_base_url or preset["base_url"]) == self.llm()["base_url"])
+        base_url = self._base_url(self.stt_provider, preset, self.stt_base_url)
+        key = self.stt_api_key or self._env_key(preset, base_url)
+        same_endpoint = self.stt_provider == self.llm_provider and base_url == self.llm()["base_url"]
         if not key and same_endpoint:
             key = self.llm()["api_key"]
-        if not key and self.stt_provider == "elevenlabs":
+        if not key and self.stt_provider == "elevenlabs" and base_url == ELEVENLABS_URL:
             key = self.elevenlabs_key()
         return {
             "provider": self.stt_provider,
             "model": self.stt_model or preset["model"],
-            "base_url": self.stt_base_url or preset["base_url"],
+            "base_url": base_url,
             "api_key": key,
         }
 
@@ -139,7 +153,7 @@ class Settings:
         if not isinstance(data, dict):
             data = {}
         settings = cls()
-        settings.update(data)
+        settings.update(data, from_file=True)
         return settings
 
     def save(self):
@@ -154,17 +168,36 @@ class Settings:
     def public(self) -> dict:
         """Settings for the web page, with keys masked."""
         data = asdict(self)
+        del data["admin_pin_hash"]
         for name in ("llm_api_key", "stt_api_key", "elevenlabs_api_key"):
-            key = data[name]
-            data[name] = ("••••" + key[-4:] if len(key) > 12 else "••••") if key else ""
+            # Never show any part of a saved key, not even to people on the same Wi-Fi
+            data[name] = "••••saved" if data[name] else ""
+        data["pin_set"] = bool(self.admin_pin_hash)
         data["can_talk"] = self.can_talk()
         data["llm_providers"] = list(LLM_PROVIDERS)
         data["stt_providers"] = list(STT_PROVIDERS)
         data["tts_providers"] = list(TTS_PROVIDERS)
         return data
 
-    def update(self, changes: dict):
+    def set_pin(self, pin: str):
+        salt = secrets.token_hex(8)
+        digest = hashlib.pbkdf2_hmac("sha256", pin.encode(), salt.encode(), 100_000).hex()
+        self.admin_pin_hash = f"{salt}${digest}" if pin else ""
+
+    def check_pin(self, pin: str | None) -> bool:
+        if not self.admin_pin_hash:
+            return True
+        if not pin:
+            return False
+        salt, digest = self.admin_pin_hash.split("$", 1)
+        attempt = hashlib.pbkdf2_hmac("sha256", pin.encode(), salt.encode(), 100_000).hex()
+        return hmac.compare_digest(attempt, digest)
+
+    def update(self, changes: dict, from_file: bool = False):
         known = {f.name: f for f in fields(self)}
+        if not from_file:
+            # The PIN hash only comes from the settings file or set_pin()
+            changes = {k: v for k, v in changes.items() if k != "admin_pin_hash"}
         for side in ("llm", "stt"):
             # A key must never follow a request to a new endpoint: when the provider
             # or base URL changes and no new key comes along, the stored key is dropped

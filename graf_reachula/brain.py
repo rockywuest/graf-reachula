@@ -18,6 +18,7 @@ class Brain:
         self.system_prompt = system_prompt
         self.history: list[tuple[str, str]] = []   # (role, text); photos are not kept
         self.vision = True
+        self.photo_rejections = 0
         if self.provider == "anthropic":
             import anthropic
 
@@ -42,9 +43,14 @@ class Brain:
             # Timeouts, rate limits and outages are not a reason to stop looking.
             if image is None or getattr(e, "status_code", None) not in (400, 404, 415, 422):
                 raise
-            log.warning("Model rejected the photo (%s); continuing without the camera", e)
-            self.vision = False
+            self.photo_rejections += 1
+            if self.photo_rejections >= 3:
+                log.warning("Model keeps rejecting photos (%s); continuing without the camera", e)
+                self.vision = False
             answer = self._ask(text, None)
+        else:
+            if image is not None:
+                self.photo_rejections = 0
         if answer:
             # An empty assistant turn would make later Anthropic calls fail
             self.history += [("user", text), ("assistant", answer)]

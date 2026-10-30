@@ -39,7 +39,7 @@ async def _synthesize(text: str, voice: str) -> bytes:
 def synthesize(text: str, voice: str) -> tuple[np.ndarray, int] | None:
     """Edge TTS: text to (mono float32 audio, sample rate), or None if unavailable."""
     try:
-        mp3 = asyncio.run(_synthesize(text, voice))
+        mp3 = asyncio.run(asyncio.wait_for(_synthesize(text, voice), TIMEOUT))
         audio, rate = sf.read(io.BytesIO(mp3), dtype="float32")
     except Exception as e:
         log.warning("Text-to-speech failed: %s", e)
@@ -54,8 +54,7 @@ def synthesize_elevenlabs(text: str, api_key: str, voice: str, model: str, langu
     """ElevenLabs TTS as raw 16 kHz PCM (signed 16-bit little-endian mono)."""
     import httpx
 
-    client = client or httpx.Client(timeout=TIMEOUT)
-    response = client.post(
+    response = (client or httpx.Client(timeout=TIMEOUT)).post(
         f"{ELEVENLABS_URL}/text-to-speech/{voice}",
         params={"output_format": f"pcm_{ELEVENLABS_RATE}"},
         headers={"xi-api-key": api_key},

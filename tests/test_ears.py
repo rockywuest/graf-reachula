@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import threading
+
 import numpy as np
 import pytest
 
@@ -67,15 +69,26 @@ def test_quiet_room_noise_is_not_speech():
     assert feed(vad, hum) == []
 
 
-def test_steady_loud_room_noise_is_reported_at_most_once():
-    # A party's steady noise is reported once at onset (~4 s), then the floor rises to meet it
-    # and it stops counting as speech; it must not be cut into utterances every few seconds
+def test_steady_music_is_cut_into_short_chunks_and_fades_into_the_background():
+    # Under steady party music the Count must still hear a call, so loud sound is cut into
+    # short chunks (each one transcribed); the floor adapts slowly until the music is background
     vad = EnergyVAD(RATE)
     rng = np.random.default_rng(0)
-    hum = [(rng.standard_normal(FRAME) * 0.03).astype(np.float32) for _ in range(int(60 / FRAME_SECONDS))]
+    hum = [(rng.standard_normal(FRAME) * 0.03).astype(np.float32) for _ in range(int(240 / FRAME_SECONDS))]
     utterances = feed(vad, hum)
-    assert len(utterances) <= 1
-    assert all(len(u) / RATE < 6.0 for u in utterances)
+    assert utterances, "the music onset is heard"
+    assert all(len(u) / RATE <= 6.5 for u in utterances)
+    late = feed(vad, hum[:int(30 / FRAME_SECONDS)])
+    assert len(late) <= 1, "after a few minutes steady music is background"
+
+
+def test_a_call_over_music_lands_in_a_chunk():
+    vad = EnergyVAD(RATE)
+    rng = np.random.default_rng(1)
+    music = lambda n: [(rng.standard_normal(FRAME) * 0.05).astype(np.float32) for _ in range(n)]
+    call = [(rng.standard_normal(FRAME) * 0.15).astype(np.float32) for _ in range(int(1.5 / FRAME_SECONDS))]
+    utterances = feed(vad, music(int(20 / FRAME_SECONDS)) + call + music(int(10 / FRAME_SECONDS)))
+    assert any(np.sqrt(np.mean(u ** 2)) > 0.06 for u in utterances), "the louder call is inside an utterance"
 
 
 @pytest.mark.parametrize("text", [
@@ -153,7 +166,7 @@ def test_xai_transcription_posts_multipart_with_keyterms(monkeypatch):
 
 def test_close_stops_mic_only_for_the_current_listener():
     robot = SimpleNamespace(media=MagicMock())
-    stage = SimpleNamespace(recording=True, ears=None)
+    stage = SimpleNamespace(recording=True, ears=None, lock=threading.RLock())
     old, new = Ears.__new__(Ears), Ears.__new__(Ears)
     for e in (old, new):
         e.robot, e.stage, e.client = robot, stage, MagicMock()

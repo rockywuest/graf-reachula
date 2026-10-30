@@ -7,13 +7,24 @@ const VOICE_FIELDS = ["tts_provider", "elevenlabs_api_key", "elevenlabs_voice", 
 
 const $ = (id) => document.getElementById(id);
 
+function pin() {
+    return $("pin").value || "";
+}
+
 // The web server starts before the app's routes exist; retry until they answer
 async function api(path, options = {}, tries = 30) {
+    options.headers = { ...(options.headers || {}), "X-Graf-Reachula": "1", "X-Graf-Pin": pin() };
     for (let i = 0; i < tries; i++) {
+        let resp = null;
         try {
-            const resp = await fetch(path, options);
-            if (resp.ok) return await resp.json();
+            resp = await fetch(path, options);
         } catch (e) { /* not ready yet */ }
+        if (resp && resp.ok) return await resp.json();
+        if (resp && (resp.status === 403 || resp.status === 429)) {
+            // A refusal (wrong PIN, busy) won't change by retrying
+            const body = await resp.json().catch(() => ({}));
+            throw new Error(body.detail || "Refused");
+        }
         await new Promise((r) => setTimeout(r, 1000));
     }
     throw new Error("The Count does not answer");
@@ -30,6 +41,9 @@ function show(settings) {
     fillSelect("stt_provider", settings.stt_providers);
     for (const t of TOGGLES) $(t).checked = !!settings[t];
     for (const f of [...FIELDS, ...VOICE_FIELDS]) $(f).value = settings[f] ?? "";
+    $("pin-state").textContent = settings.pin_set
+        ? "🔒 Locked: enter the PIN to change providers, keys or the voice."
+        : "🔓 No PIN set: anyone on this network can change providers and keys. Set one before the party.";
     showStatus(settings);
 }
 
@@ -52,8 +66,10 @@ async function save(changes) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ changes }),
         }, 3));
+        return true;
     } catch (e) {
         $("status").textContent = e.message;
+        return false;
     }
 }
 
@@ -83,6 +99,10 @@ $("save-voice").addEventListener("click", () => {
     const changes = {};
     for (const f of VOICE_FIELDS) changes[f] = $(f).value.trim();
     save(changes);
+});
+$("save-pin").addEventListener("click", () => {
+    const value = $("new_pin").value.trim();
+    if (value) save({ new_pin: value }).then((ok) => { if (ok) { $("pin").value = value; $("new_pin").value = ""; } });
 });
 $("save").addEventListener("click", () => {
     const changes = {};

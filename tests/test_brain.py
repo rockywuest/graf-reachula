@@ -139,17 +139,20 @@ def test_unrelated_errors_are_not_retried_as_effort_errors():
 # -- vision fallback -----------------------------------------------------------------------
 
 @pytest.mark.parametrize("status", [400, 404, 415, 422])
-def test_vision_fallback_retries_without_photo_and_remembers_it(status):
-    brain = anthropic_brain([
-        ApiError("this model does not accept image input", status),
-        anthropic_response("Text only then"),
-        anthropic_response("Still text"),
-    ])
-    assert brain.reply("look", "AAAA") == "Text only then"
-    assert brain.vision is False
+def test_vision_fallback_retries_without_photo_and_gives_up_after_three(status):
+    responses = []
+    for i in range(3):
+        responses += [ApiError("this model does not accept image input", status), anthropic_response(f"Text {i}")]
+    responses.append(anthropic_response("Still text"))
+    brain = anthropic_brain(responses)
+    assert brain.reply("look", "AAAA") == "Text 0"
+    assert brain.vision is True, "one rejection is not enough to stop looking"
     first, second = brain.client.messages.create.call_args_list[:2]
     assert any(b["type"] == "image" for b in first.kwargs["messages"][-1]["content"])
     assert all(b["type"] == "text" for b in second.kwargs["messages"][-1]["content"])
+    brain.reply("look", "AAAA")
+    brain.reply("look", "AAAA")
+    assert brain.vision is False
 
     brain.reply("look again", "AAAA")
     last = brain.client.messages.create.call_args.kwargs["messages"][-1]["content"]
@@ -205,7 +208,7 @@ def test_openai_history_is_sent_back_in_order():
 def test_openai_vision_fallback_on_text_only_model():
     brain = openai_brain([ApiError("model does not support image_url", 400), openai_response("Text")])
     assert brain.reply("hi", "AAAA") == "Text"
-    assert brain.vision is False
+    assert brain.photo_rejections == 1
 
 
 def test_openai_empty_content_becomes_empty_string():

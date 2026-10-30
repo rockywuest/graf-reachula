@@ -22,9 +22,29 @@ log = logging.getLogger("graf_reachula")
 LOCAL_HOST = re.compile(r"^(localhost|\d{1,3}(\.\d{1,3}){3}|\[[0-9a-f:]+\]|[\w-]+(\.local)?)(:\d+)?$", re.IGNORECASE)
 
 
+# Changing these needs the settings PIN once one is set: they decide where keys,
+# voices and camera photos go
+SENSITIVE = {"talk", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
+             "stt_provider", "stt_model", "stt_api_key", "stt_base_url",
+             "tts_provider", "elevenlabs_api_key", "elevenlabs_voice", "elevenlabs_model", "new_pin"}
+MAX_QUEUE = 5
+TALK_RELATED = {"talk", "language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
+                "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "elevenlabs_api_key"}
+
+
 def check_host(request: Request):
     if not LOCAL_HOST.match(request.headers.get("host", "")):
         raise HTTPException(status_code=403, detail="Open this page via the robot's address")
+
+
+def check_write(request: Request):
+    """Writes only from the app's own page: blocks drive-by requests from other web pages."""
+    check_host(request)
+    # A custom header can't be sent cross-site without a CORS preflight, which this server never allows
+    if request.headers.get("x-graf-reachula") != "1":
+        raise HTTPException(status_code=403, detail="Use the app's settings page")
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        raise HTTPException(status_code=403, detail="Cross-site request refused")
 
 
 class SettingsUpdate(BaseModel):
@@ -95,20 +115,33 @@ class GrafReachula(ReachyMiniApp):
 
         @self.settings_app.post("/api/settings")
         def update_settings(update: SettingsUpdate, request: Request):
-            check_host(request)
-            talk_related = {"talk", "language", "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
-                            "stt_provider", "stt_model", "stt_api_key", "stt_base_url", "elevenlabs_api_key"}
+            check_write(request)
+            sensitive = SENSITIVE & set(update.changes)
+            if sensitive and not settings.check_pin(request.headers.get("x-graf-pin")):
+                raise HTTPException(status_code=403, detail="Settings PIN required for: " + ", ".join(sorted(sensitive)))
+            new_pin = update.changes.pop("new_pin", None)
+            if isinstance(new_pin, str) and new_pin.strip():
+                settings.set_pin(new_pin.strip())
+            before = settings.public()
             settings.update(update.changes)
             settings.save()
+            after = settings.public()
+            # The page sends every field on Save; only restart for what really changed
+            changed = {name for name in TALK_RELATED if before.get(name) != after.get(name)}
+            changed |= {name for name in ("llm_api_key", "stt_api_key", "elevenlabs_api_key")
+                        if isinstance(update.changes.get(name), str) and update.changes[name]
+                        and not update.changes[name].startswith("••••")}
             if {"tts_provider", "elevenlabs_api_key", "elevenlabs_voice", "elevenlabs_model"} & set(update.changes):
                 voice.reset()
-            if talk_related & set(update.changes):
+            if changed & TALK_RELATED:
                 restart_talking()
             return {**settings.public(), **live_status()}
 
         @self.settings_app.post("/api/play/{kind}/{name}")
         def play(kind: str, name: str, request: Request):
-            check_host(request)
+            check_write(request)
+            if len(requests) >= MAX_QUEUE:
+                raise HTTPException(status_code=429, detail="Easy, the Count is still busy")
             requests.append((kind, name))
             return {"queued": f"{kind}:{name}"}
 
@@ -143,6 +176,7 @@ class GrafReachula(ReachyMiniApp):
                         log.exception("Could not play %s:%s", kind, name)
                 time.sleep(0.1)
         finally:
+            stop_event.set()   # let the haunt thread finish before the robot connection closes
             with talk_lock:
                 stop_talking()
             haunt_thread.join(timeout=10)

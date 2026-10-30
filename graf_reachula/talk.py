@@ -19,9 +19,11 @@ FOLLOW_UP = 25   # seconds after a reply in which the name isn't needed again
 
 # How speech recognition spells the robot's name when people call it
 ADDRESSED = re.compile(
-    r"\breach|\bri[ct]+s?c?h[iy]|r[ei]e?a?t?s?c?h[iy]e?|\bcount\b|\bgraf\b|dracula|reachula",
+    # Reachy, Reach it, Richie, Ritschi, Reichy, Raichy, Count, Graf, Reachula, Reichula, Dracula
+    r"\breach(y|ie|i|\s+it)?\b|\br[ae]?[aei]e?t?s?c?h[iy]e?\b|\bcount\b|\bgraf\b|dracula|re[ai]?chula",
     re.IGNORECASE,
 )
+ECHO_WINDOW = 10   # seconds in which a transcript may just be the Count's own last line
 
 TAG = re.compile(r"\[(sound|move|scare)(?::([^\]]*))?\]", re.IGNORECASE)
 
@@ -56,7 +58,8 @@ class Talk:
         self.ears = Ears(robot, stage, settings.stt(), settings.language)
         self.brain = Brain(settings.llm(), system_prompt(settings.language))
         self.last_reply = 0.0
-        self.stop_event = threading.Event()
+        self.last_spoken = ""
+        self.stop_event = threading.Event()   # replaced by run()
         self.last_error = ""      # shown on the settings page
 
     def perform(self, effects):
@@ -68,7 +71,18 @@ class Talk:
             elif kind == "scare":
                 self.haunt.jump_scare()
 
+    def is_echo(self, text: str) -> bool:
+        """True if the transcript is mostly the Count's own last sentence (heard through the mic)."""
+        if time.time() - self.last_reply > ECHO_WINDOW or not self.last_spoken:
+            return False
+        words = {w for w in re.findall(r"\w{4,}", text.lower())}
+        spoken = {w for w in re.findall(r"\w{4,}", self.last_spoken.lower())}
+        return bool(words) and len(words & spoken) / len(words) > 0.6
+
     def handle(self, text: str):
+        if self.is_echo(text):
+            log.info("Ignored my own echo")
+            return
         addressed = bool(ADDRESSED.search(text))
         if self.settings.wake_word and not addressed and time.time() - self.last_reply > FOLLOW_UP:
             log.debug("Not addressed, ignored")
@@ -87,6 +101,11 @@ class Talk:
                 return   # settings changed while thinking; a newer conversation has taken over
             spoken, effects = split_effects(reply)
             log.info("Count: %r %s", spoken, effects)
+            if self.haunt.lurking:
+                # Look up from the lurking pose to answer
+                self.stage.neutral()
+                self.haunt.lurking = False
+            self.last_spoken = spoken
             self.voice(spoken)
             self.perform(effects)
             self.last_reply = time.time()

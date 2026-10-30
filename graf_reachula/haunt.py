@@ -14,7 +14,8 @@ import numpy as np
 log = logging.getLogger(__name__)
 
 LURK_AFTER = 15          # seconds of the Count being silent before he starts lurking
-SCARE_COOLDOWN = 40      # seconds between two jump scares
+SCARE_COOLDOWN = 40      # seconds between two automatic jump scares
+MIN_SCARE_GAP = 8        # seconds between any two scares (also requested ones)
 AMBIENT_EVERY = (50, 100)
 # Share of pixels that must change between two frames. A still room measured
 # at most 1.7 %; someone stepping in front of the camera is far above 6 %.
@@ -38,6 +39,7 @@ class Haunt:
         self.say = say                  # optional: speak a line after a scare
         self.conversation_active = threading.Event()
         self.lurking = False
+        self.camera_warned = False
         self.last_scare = 0.0
         self.next_ambient = time.time() + random.uniform(*AMBIENT_EVERY)
 
@@ -45,6 +47,9 @@ class Haunt:
         return time.time() - self.stage.last_performance
 
     def jump_scare(self):
+        # Also limits scares requested by the chat model or the web page
+        if time.time() - self.last_scare < MIN_SCARE_GAP:
+            return
         log.info("BOO!")
         self.last_scare = time.time()
         self.lurking = False
@@ -110,6 +115,9 @@ class Haunt:
 
             frame = self.robot.media.get_frame()
             if frame is None:
+                if not self.camera_warned:
+                    log.warning("No camera frames: jump scares need the camera")
+                    self.camera_warned = True
                 continue
             current = small_gray(frame)
             if (previous is not None and changed_share(previous, current) > MOTION_THRESHOLD

@@ -62,7 +62,8 @@ def running_app(monkeypatch):
     thread = threading.Thread(target=app.run, args=(SimpleNamespace(), stop), daemon=True)
     thread.start()
     time.sleep(0.3)
-    client = TestClient(app.settings_app, headers={"host": "reachy-mini.local:8042"})
+    client = TestClient(app.settings_app, headers={"host": "reachy-mini.local:8042", "x-graf-reachula": "1"})
+    client.app_settings = app
     yield client
     stop.set()
     thread.join(timeout=5)
@@ -77,6 +78,34 @@ def test_get_settings_returns_settings_and_live_status(running_app):
 def test_settings_update_round_trip(running_app):
     data = running_app.post("/api/settings", json={"changes": {"language": "de", "scares": "false"}}).json()
     assert data["language"] == "de" and data["scares"] is False
+
+
+def test_writes_without_the_page_header_are_refused(running_app):
+    """A drive-by request from another web page can't send the custom header."""
+    response = running_app.post("/api/play/sound/ghost", headers={"x-graf-reachula": ""})
+    assert response.status_code == 403
+    response = running_app.post("/api/settings", json={"changes": {"language": "de"}},
+                                headers={"sec-fetch-site": "cross-site"})
+    assert response.status_code == 403
+
+
+def test_pin_locks_sensitive_settings(running_app):
+    assert running_app.post("/api/settings", json={"changes": {"new_pin": "4711"}}).status_code == 200
+    data = running_app.get("/api/settings").json()
+    assert data["pin_set"] is True
+    locked = running_app.post("/api/settings", json={"changes": {"stt_provider": "elevenlabs"}})
+    assert locked.status_code == 403
+    assert running_app.post("/api/settings", json={"changes": {"language": "de"}}).status_code == 200
+    ok = running_app.post("/api/settings", json={"changes": {"stt_provider": "elevenlabs"}},
+                          headers={"x-graf-pin": "4711"})
+    assert ok.status_code == 200 and ok.json()["stt_provider"] == "elevenlabs"
+    wrong = running_app.post("/api/settings", json={"changes": {"new_pin": "0000"}}, headers={"x-graf-pin": "1"})
+    assert wrong.status_code == 403
+
+
+def test_play_queue_is_capped(running_app):
+    codes = [running_app.post("/api/play/move/scared").status_code for _ in range(20)]
+    assert 429 in codes
 
 
 def test_foreign_host_is_rejected(running_app):

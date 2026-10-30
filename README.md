@@ -6,7 +6,7 @@ colorTo: red
 sdk: static
 pinned: false
 license: mit
-short_description: "Spooky Reachy: a tiny ghost who says BOO! and tells tales"
+short_description: "Spooky Reachy: a friendly vampire ghost who says BOO!"
 tags:
  - reachy_mini
  - reachy_mini_python_app
@@ -16,6 +16,15 @@ tags:
 ---
 
 # 🧛 Count Reachula — Spooky Reachy for Halloween
+
+[![Hugging Face Space](https://img.shields.io/badge/%F0%9F%A4%97%20Space-Count%20Reachula-orange)](https://huggingface.co/spaces/RockyRocket/graf_reachula)
+[![GitHub](https://img.shields.io/badge/GitHub-graf--reachula-black?logo=github)](https://github.com/rockywuest/graf-reachula)
+![Reachy Mini app](https://img.shields.io/badge/Reachy%20Mini-app-purple)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
+![Count Reachula — Spooky Reachy](assets/og.png)
+
+**Install:** Reachy Mini Control → *Applications* → *Discover Apps* → **Count Reachula**
 
 **Your Reachy Mini just became a vampire ghost.** Count Reachula, the friendly little ghost for your Halloween party,
 lurks perfectly still, jumps up with a "BOO!" when someone walks by, fills the room with creaking
@@ -117,8 +126,12 @@ spoken line).
 
 Models without vision work too; the Count then just can't see.
 
-The settings page has no password: use it only on a network you trust. After saving, the page shows only the last four
-characters of each key, and a stored key is dropped whenever the provider or base URL changes.
+### Before the party: set a settings PIN
+
+Guests on your Wi-Fi can open the app's page too. Under **Settings PIN**, set a PIN: from then on, providers,
+keys and the voice can only be changed with it (sounds, moves and the language stay open, so guests can play).
+Saved keys are never shown on the page again, keys only ever go to their provider's official address, and a
+stored key is dropped whenever the provider changes.
 
 At a loud party the Count only answers when called by name ("Reachy", "Count", "Graf"), and for 25 seconds
 after his last answer. Ordinary words like "reach" or "count" can wake him too. You can switch this off on the
@@ -183,7 +196,10 @@ nach dem Speichern zeigt die Seite nur die letzten vier Zeichen.
 (etwa ein Schlüssel ohne passende Berechtigung) zeigt die Statuszeile auf der App-Seite.
 
 Auf einer lauten Party antwortet der Graf nur, wenn man ihn ruft („Reachy“, „Graf“, „Count“). Auch Wörter wie
-„reach“ oder „count“ können ihn wecken. Die Einstellungsseite hat kein Passwort: nur in vertrauenswürdigen Netzen nutzen.
+„reach“ oder „count“ können ihn wecken. 
+**Vor der Party eine PIN setzen:** Gäste im WLAN können die App-Seite auch öffnen. Unter **Settings PIN** eine PIN
+festlegen; danach lassen sich Anbieter, Schlüssel und Stimme nur noch mit PIN ändern. Gespeicherte Schlüssel zeigt die
+Seite nie wieder an, und sie gehen nur an die offizielle Adresse ihres Anbieters.
 
 **Tipp:** Neben die Süßigkeitenschale stellen, auf einen Tisch, außer Reichweite kleiner Hände. Für Kleinkinder das
 Erschrecken auf der App-Seite ausschalten.
@@ -196,6 +212,9 @@ Fotos eurer Gäste; einige Anbieter verarbeiten Daten in den USA. Sagt euren Gä
 Roboter mit Kamera auf der Party ist, bevor ihr die Sprachfunktion einschaltet.
 
 ---
+
+If he haunted your party, a like on the [Space](https://huggingface.co/spaces/RockyRocket/graf_reachula) helps
+other families find him. Source: [GitHub](https://github.com/rockywuest/graf-reachula).
 
 Made with 🧛 by [FRECH & WUEST](https://frechundwuest.de) · MIT License
 

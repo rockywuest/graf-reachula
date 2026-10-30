@@ -14,7 +14,6 @@ TEXTS = {
             "Boo! Ha ha, don't worry, I'm a very friendly ghost. Trick or treat?",
         ],
         "voice_test": "Good evening. Count Reachula speaking. Can you hear my spooky voice?",
-        "not_understood": "Hmm, the wind howled too loudly. Could you say that again?",
         "error": "Oh dear, my crystal ball has gone foggy. Ask me again in a moment!",
         "persona": "Reply in English, even if the transcript looks like another language "
                    "(the speech recognition sometimes guesses wrong).",
@@ -32,7 +31,6 @@ TEXTS = {
             "Buh! Haha, keine Sorge, ich bin ein ganz lieber Geist. Süßes oder Saures?",
         ],
         "voice_test": "Guten Abend. Hier spricht Graf Reachula. Hört ihr meine Gruselstimme?",
-        "not_understood": "Hm, der Wind hat zu laut geheult. Sag das bitte noch einmal!",
         "error": "Oje, meine Kristallkugel ist beschlagen. Frag mich gleich noch einmal!",
         "persona": "Antworte immer auf Deutsch, auch wenn das Transkript nach einer anderen "
                    "Sprache aussieht (die Spracherkennung irrt sich manchmal).",

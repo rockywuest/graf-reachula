@@ -47,8 +47,8 @@ button {
     padding: 8px 14px; font-size: 14px; cursor: pointer;
 }
 button:hover { border-color: var(--accent); }
-button.scare, #save, #save-voice { background: var(--blood); border-color: var(--blood); font-weight: 600; }
-#save, #save-voice { margin-top: 12px; border-radius: 8px; width: 100%; }
+button.scare, #save, #save-voice, #save-pin { background: var(--blood); border-color: var(--blood); font-weight: 600; }
+#save, #save-voice, #save-pin { margin-top: 12px; border-radius: 8px; width: 100%; }
 
 footer { text-align: center; color: var(--muted); font-size: 13px; padding: 16px; }
 footer a { color: var(--accent); }

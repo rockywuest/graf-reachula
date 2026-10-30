@@ -86,11 +86,35 @@ def test_can_talk_needs_talk_flag_and_both_keys(monkeypatch):
     assert Settings(talk=False).can_talk() is False
 
 
-def test_proxy_base_url_does_not_receive_env_key(monkeypatch):
-    # The env key must only go to the provider's own endpoint
+def test_preset_providers_ignore_a_typed_base_url(monkeypatch):
+    # Keys and data of a preset provider always go to its own endpoint
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-env")
     s = Settings(llm_provider="openrouter", llm_base_url="https://evil.example/v1")
-    assert s.llm()["api_key"] == ""
+    assert s.llm()["base_url"] == "https://openrouter.ai/api/v1"
+    assert s.llm()["api_key"] == "or-env"
+
+
+def test_custom_base_url_never_receives_env_keys(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-env")
+    s = Settings(llm_provider="custom", llm_base_url="https://evil.example/v1",
+                 stt_provider="custom", stt_base_url="https://evil.example/v1")
+    assert s.llm()["api_key"] == "" and s.stt()["api_key"] == ""
+
+
+def test_elevenlabs_key_cannot_be_redirected(monkeypatch):
+    """The audit's attack: switch speech-to-text to elevenlabs with an attacker URL."""
+    s = Settings(elevenlabs_api_key="sk_eleven_secret")
+    s.update({"stt_provider": "elevenlabs", "stt_base_url": "https://evil.example/v1"})
+    assert s.stt()["base_url"] == "https://api.elevenlabs.io/v1"
+
+
+def test_pin_hash_cannot_be_set_through_update():
+    s = Settings()
+    s.update({"admin_pin_hash": "x$y"})
+    assert s.admin_pin_hash == ""
+    s.set_pin("1234")
+    assert s.check_pin("1234") and not s.check_pin("0000") and not s.check_pin(None)
+    assert "admin_pin_hash" not in s.public() and s.public()["pin_set"] is True
 
 
 def test_explicit_official_openai_url_still_gets_env_key(monkeypatch):
@@ -138,7 +162,7 @@ def test_load_ignores_unknown_fields():
 def test_public_masks_keys_and_reports_capabilities(monkeypatch):
     s = Settings(llm_api_key="sk-live-ABCD1234", stt_api_key="")
     data = s.public()
-    assert data["llm_api_key"] == "••••1234"
+    assert data["llm_api_key"] == "••••saved"
     assert data["stt_api_key"] == ""
     assert "sk-live" not in json.dumps(data)
     assert data["can_talk"] is False

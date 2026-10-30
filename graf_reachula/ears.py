@@ -13,7 +13,8 @@ log = logging.getLogger(__name__)
 FRAME_SECONDS = 0.03
 END_SILENCE = 0.8        # seconds of quiet that end an utterance
 MIN_SPEECH = 0.4         # shorter blips are ignored
-MAX_SPEECH = 15.0
+SPEECH_OVER_FLOOR = 2.0
+MAX_SPEECH = 6.0        # longer sounds (music) are cut into chunks; a call inside one is still found
 
 # Whisper invents these on noise (it was trained on subtitled videos)
 PHANTOMS = re.compile(
@@ -41,10 +42,11 @@ class EnergyVAD:
     def push(self, frame: np.ndarray) -> np.ndarray | None:
         """Feed one frame; returns a finished utterance or None."""
         rms = float(np.sqrt(np.mean(frame ** 2)))
-        loud = rms > max(self.floor * 3.0, 0.01)
+        # Twice the room level: someone talking to the robot up close is louder than the music
+        loud = rms > max(self.floor * SPEECH_OVER_FLOOR, 0.01)
         # Follow the background level: quickly down, slowly up even while it's loud,
         # so steady party music raises the floor instead of counting as speech forever
-        rate = 0.02 if rms < self.floor or not loud else 0.002
+        rate = 0.02 if rms < self.floor or not loud else 0.0005
         self.floor += rate * (rms - self.floor)
 
         if not self.active:
@@ -98,7 +100,8 @@ class Ears:
         self.rate = robot.media.get_input_audio_samplerate() or 16000
         self.vad = EnergyVAD(self.rate)
         self.buffer = np.zeros(0, dtype=np.float32)
-        self.robot.media.start_recording()
+        with stage.lock:
+            self.robot.media.start_recording()
         stage.recording = True
         stage.ears = self            # the current listener; older ones must not touch the mic
 
@@ -199,6 +202,7 @@ class Ears:
         self.stage.recording = False
         self.stage.ears = None
         try:
-            self.robot.media.stop_recording()
+            with self.stage.lock:
+                self.robot.media.stop_recording()
         except Exception as e:
             log.warning("Could not stop the microphone: %s", e)
