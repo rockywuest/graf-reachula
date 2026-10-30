@@ -27,7 +27,7 @@ def test_llm_preset_resolves_model_url_and_env_key(provider, monkeypatch):
     resolved = Settings(llm_provider=provider).llm()
     assert resolved["provider"] == provider
     assert resolved["model"] == preset["model"]
-    assert resolved["base_url"] == (preset["base_url"] or None) or resolved["base_url"] == preset["base_url"]
+    assert resolved["base_url"] == preset["base_url"]
     assert resolved["api_key"] == "env-secret-key"
 
 

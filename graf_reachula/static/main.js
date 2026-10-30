@@ -64,7 +64,7 @@ addButtons("move-buttons", "move", MOVES);
 
 document.addEventListener("click", (e) => {
     const b = e.target.closest("button[data-kind]");
-    if (b) api(`/api/play/${b.dataset.kind}/${b.dataset.name}`, { method: "POST" }, 3).catch(() => {});
+    if (b) api(`/api/play/${b.dataset.kind}/${b.dataset.name}`, { method: "POST" }, 1).catch(() => {});
 });
 
 for (const t of ["scares", "ambient", "wake_word", "talk"]) {

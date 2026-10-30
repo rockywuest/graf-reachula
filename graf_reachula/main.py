@@ -44,7 +44,14 @@ class GrafReachula(ReachyMiniApp):
         talk_stop = threading.Event()
         talk_thread: threading.Thread | None = None
         status = {"talking": False, "talk_error": ""}
+        talk_lock = threading.Lock()
         requests: list[tuple[str, str]] = []   # effects requested from the web page
+
+        def restart_talking():
+            """Stop any running conversation and start a new one with the current settings."""
+            with talk_lock:
+                stop_talking()
+                start_talking()
 
         def start_talking():
             nonlocal talk_thread, talk_stop
@@ -65,9 +72,12 @@ class GrafReachula(ReachyMiniApp):
             status["talking"] = True
 
         def stop_talking():
+            # A thread stuck in a slow model call finishes on its own; its stop
+            # event keeps it from answering, so don't block the web request on it
             talk_stop.set()
             if talk_thread is not None:
-                talk_thread.join(timeout=20)
+                talk_thread.join(timeout=2)
+            status["talking"] = False
 
         # --- web page routes (the server starts before run(); the page retries) ---
 
@@ -84,8 +94,7 @@ class GrafReachula(ReachyMiniApp):
             settings.update(update.changes)
             settings.save()
             if talk_related & set(update.changes):
-                stop_talking()
-                start_talking()
+                restart_talking()
             return {**settings.public(), **status}
 
         @self.settings_app.post("/api/play/{kind}/{name}")
@@ -103,7 +112,7 @@ class GrafReachula(ReachyMiniApp):
                 return
         stage.play_sound("laugh")
 
-        start_talking()
+        restart_talking()
         haunt_thread = threading.Thread(target=haunt.run, args=(stop_event,), daemon=True)
         haunt_thread.start()
 
@@ -111,15 +120,19 @@ class GrafReachula(ReachyMiniApp):
             while not stop_event.is_set():
                 while requests:
                     kind, name = requests.pop(0)
-                    if kind == "sound":
-                        stage.play_sound(name)
-                    elif kind == "move":
-                        stage.play_move(name)
-                    elif kind == "scare":
-                        haunt.jump_scare()
+                    try:
+                        if kind == "sound":
+                            stage.play_sound(name)
+                        elif kind == "move":
+                            stage.play_move(name)
+                        elif kind == "scare":
+                            haunt.jump_scare()
+                    except Exception:
+                        log.exception("Could not play %s:%s", kind, name)
                 time.sleep(0.1)
         finally:
-            stop_talking()
+            with talk_lock:
+                stop_talking()
             haunt_thread.join(timeout=10)
 
 

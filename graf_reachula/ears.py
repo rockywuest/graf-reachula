@@ -42,9 +42,10 @@ class EnergyVAD:
         """Feed one frame; returns a finished utterance or None."""
         rms = float(np.sqrt(np.mean(frame ** 2)))
         loud = rms > max(self.floor * 3.0, 0.01)
-        if not loud:
-            # Follow the background level slowly (a party gets louder over the evening)
-            self.floor = 0.98 * self.floor + 0.02 * rms
+        # Follow the background level: quickly down, slowly up even while it's loud,
+        # so steady party music raises the floor instead of counting as speech forever
+        rate = 0.02 if rms < self.floor or not loud else 0.002
+        self.floor += rate * (rms - self.floor)
 
         if not self.active:
             self.loud_streak = self.loud_streak + 1 if loud else 0
@@ -84,6 +85,7 @@ class Ears:
         self.vad = EnergyVAD(self.rate)
         self.buffer = np.zeros(0, dtype=np.float32)
         self.robot.media.start_recording()
+        stage.recording = True
 
     def _flush(self):
         while self.robot.media.get_audio_sample() is not None:
@@ -95,7 +97,7 @@ class Ears:
         """Block until one utterance has been heard (or the app stops)."""
         frame_len = int(self.rate * FRAME_SECONDS)
         while not stop_event.is_set():
-            if self.stage.speaking:
+            if self.stage.echoing():
                 # Don't transcribe the robot's own voice and sounds
                 self._flush()
                 time.sleep(0.05)
@@ -128,7 +130,6 @@ class Ears:
         return text
 
     def close(self):
-        try:
-            self.robot.media.stop_recording()
-        except Exception:
-            pass
+        # The microphone stays on: playback shares its pipeline, and a newer
+        # Ears may already be listening after a settings change
+        self.stage.recording = False

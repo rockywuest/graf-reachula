@@ -55,6 +55,7 @@ class Talk:
         self.ears = Ears(robot, stage, settings.stt(), settings.language)
         self.brain = Brain(settings.llm(), system_prompt(settings.language))
         self.last_reply = 0.0
+        self.stop_event = threading.Event()
 
     def perform(self, effects):
         for kind, arg in effects:
@@ -79,6 +80,8 @@ class Talk:
                 log.error("LLM call failed: %s", e)
                 self.voice(self.voice.texts["error"])
                 return
+            if self.stop_event.is_set():
+                return   # settings changed while thinking; a newer conversation has taken over
             spoken, effects = split_effects(reply)
             log.info("Count: %r %s", spoken, effects)
             self.voice(spoken)
@@ -88,17 +91,20 @@ class Talk:
             self.haunt.conversation_active.clear()
 
     def run(self, stop_event: threading.Event):
-        try:
-            while not stop_event.is_set():
+        self.stop_event = stop_event
+        while not stop_event.is_set():
+            try:
                 audio = self.ears.listen(stop_event)
-                if audio is None:
+                if audio is None or stop_event.is_set():
                     continue
                 try:
                     text = self.ears.transcribe(audio)
                 except Exception as e:
                     log.error("Speech-to-text failed: %s", e)
+                    time.sleep(1)
                     continue
-                if text:
+                if text and not stop_event.is_set():
                     self.handle(text)
-        finally:
-            self.ears.close()
+            except Exception:
+                log.exception("Talking hiccup")
+                time.sleep(1)

@@ -38,6 +38,8 @@ class Stage:
         self.robot = robot
         self.lock = threading.RLock()
         self.speaking = False           # audio is playing: the ears must not listen
+        self.quiet_from = 0.0           # the room still echoes until this time
+        self.recording = False          # the ears are using the microphone
         self.last_performance = time.time()
         self.sounds = sounds.build_library()
         self.moves: dict = {}
@@ -72,25 +74,27 @@ class Stage:
                 media.push_audio_sample(frames)
                 time.sleep(len(audio) / out_rate + 0.2)
                 media.stop_playing()
+                # On the robot, playback and recording share one GStreamer
+                # pipeline: stopping playback also stops the microphone
+                if self.recording:
+                    media.start_recording()
             finally:
-                self.speaking = False
-                self.last_performance = time.time()
+                self._done()
 
     def play_sound(self, name: str):
         if name in self.sounds:
             self.play_audio(self.sounds[name])
-        elif name in LIBRARY_SOUNDS and self.library is not None:
+        elif name in LIBRARY_SOUNDS and self.library is not None and LIBRARY_SOUNDS[name] in self.library.moves:
             path = self.library.sounds.get(LIBRARY_SOUNDS[name])
-            move = self.library.get(LIBRARY_SOUNDS[name])
+            duration = self.library.get(LIBRARY_SOUNDS[name]).duration
             if path:
                 with self.lock:
                     self.speaking = True
                     try:
                         self.robot.media.play_sound(path)
-                        time.sleep(move.duration + 0.3)
+                        time.sleep(duration + 0.3)
                     finally:
-                        self.speaking = False
-                        self.last_performance = time.time()
+                        self._done()
         else:
             log.info("Unknown sound: %s", name)
 
@@ -107,20 +111,26 @@ class Stage:
             try:
                 self.robot.play_move(move, initial_goto_duration=0.6, sound=True)
             finally:
-                self.speaking = False
-                self.last_performance = time.time()
+                self._done()
+
+    def _done(self):
+        self.speaking = False
+        self.last_performance = time.time()
+        self.quiet_from = self.last_performance + 0.8
 
     # -- poses --------------------------------------------------------------------
 
     def neutral(self, duration: float = 1.0):
-        self.robot.goto_target(head=create_head_pose(), antennas=np.deg2rad([0, 0]),
-                               duration=duration, method="minjerk")
+        with self.lock:
+            self.robot.goto_target(head=create_head_pose(), antennas=np.deg2rad([0, 0]),
+                                   duration=duration, method="minjerk")
 
     def lurk(self):
         """Head down, antennas flat: waiting perfectly still for a victim."""
-        self.robot.goto_target(head=create_head_pose(pitch=18, degrees=True), antennas=np.deg2rad([5, 5]),
-                               duration=2.0, method="minjerk")
-        time.sleep(2.2)
+        with self.lock:
+            self.robot.goto_target(head=create_head_pose(pitch=18, degrees=True), antennas=np.deg2rad([5, 5]),
+                                   duration=2.0, method="minjerk")
+            time.sleep(2.2)
 
     def jump(self):
         """The scare: head up and antennas out, as fast as the motors allow."""
@@ -133,3 +143,7 @@ class Stage:
             return False
         self.lock.release()
         return not self.speaking
+
+    def echoing(self) -> bool:
+        """True while playing or just after: the microphone would hear the robot itself."""
+        return self.speaking or time.time() < self.quiet_from

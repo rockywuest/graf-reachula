@@ -38,14 +38,17 @@ class Brain:
         try:
             answer = self._ask(text, image)
         except Exception as e:
-            if image is None:
+            # Text-only models reject images with a 400; carry on without the camera.
+            # Timeouts, rate limits and outages are not a reason to stop looking.
+            if image is None or getattr(e, "status_code", None) not in (400, 404, 415, 422):
                 raise
-            # Text-only models reject images; carry on without the camera
-            log.warning("Model call with photo failed (%s); retrying without it", e)
+            log.warning("Model rejected the photo (%s); continuing without the camera", e)
             self.vision = False
             answer = self._ask(text, None)
-        self.history += [("user", text), ("assistant", answer)]
-        self.history = self.history[-MAX_HISTORY:]
+        if answer:
+            # An empty assistant turn would make later Anthropic calls fail
+            self.history += [("user", text), ("assistant", answer)]
+            self.history = self.history[-MAX_HISTORY:]
         return answer
 
     def _ask(self, text: str, image: str | None) -> str:
@@ -66,7 +69,7 @@ class Brain:
         try:
             response = self.client.messages.create(**kwargs)
         except Exception as e:
-            if not self.effort or "effort" not in str(e).lower():
+            if not self.effort or not any(w in str(e).lower() for w in ("effort", "output_config")):
                 raise
             self.effort = False
             kwargs.pop("output_config")

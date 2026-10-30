@@ -2,10 +2,13 @@
 
 import json
 import os
+import threading
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 SETTINGS_PATH = Path(os.getenv("GRAF_REACHULA_SETTINGS", Path.home() / ".config" / "graf_reachula" / "settings.json"))
+
+LANGUAGES = ("en", "de")
 
 # Chat providers. Everything except Anthropic speaks the OpenAI chat API,
 # so one client covers them all with a different base URL.
@@ -99,22 +102,27 @@ class Settings:
             data = json.loads(SETTINGS_PATH.read_text())
         except (FileNotFoundError, json.JSONDecodeError):
             data = {}
-        known = {f.name for f in fields(cls)}
-        return cls(**{k: v for k, v in data.items() if k in known})
+        if not isinstance(data, dict):
+            data = {}
+        settings = cls()
+        settings.update(data)
+        return settings
 
     def save(self):
         SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = SETTINGS_PATH.with_suffix(".tmp")
-        tmp.write_text(json.dumps(asdict(self), indent=2))
-        # API keys live in this file
-        os.chmod(tmp, 0o600)
+        tmp = SETTINGS_PATH.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
+        # API keys live in this file: create it readable by the owner only
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps(asdict(self), indent=2))
         os.replace(tmp, SETTINGS_PATH)
 
     def public(self) -> dict:
         """Settings for the web page, with keys masked."""
         data = asdict(self)
         for name in ("llm_api_key", "stt_api_key"):
-            data[name] = "••••" + data[name][-4:] if data[name] else ""
+            key = data[name]
+            data[name] = ("••••" + key[-4:] if len(key) > 12 else "••••") if key else ""
         data["can_talk"] = self.can_talk()
         data["llm_providers"] = list(LLM_PROVIDERS)
         data["stt_providers"] = list(STT_PROVIDERS)
@@ -141,5 +149,12 @@ class Settings:
             if isinstance(default, bool):
                 value = value if isinstance(value, bool) else str(value).lower() in ("1", "true", "on", "yes")
             elif not isinstance(value, str):
+                continue
+            value = value.strip() if isinstance(value, str) else value
+            if name == "language" and value not in LANGUAGES:
+                continue
+            if name == "llm_provider" and value not in LLM_PROVIDERS:
+                continue
+            if name == "stt_provider" and value not in STT_PROVIDERS:
                 continue
             setattr(self, name, value)

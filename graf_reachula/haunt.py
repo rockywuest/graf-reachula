@@ -70,6 +70,15 @@ class Haunt:
         self.next_ambient = time.time() + random.uniform(*AMBIENT_EVERY)
 
     def run(self, stop_event: threading.Event):
+        while not stop_event.is_set():
+            try:
+                self._haunt(stop_event)
+            except Exception:
+                log.exception("Haunting hiccup")
+                self.lurking = False
+                time.sleep(2)
+
+    def _haunt(self, stop_event: threading.Event):
         previous = None
         while not stop_event.is_set():
             time.sleep(0.3)
