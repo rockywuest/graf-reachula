@@ -22,9 +22,9 @@ tags:
 ![Reachy Mini app](https://img.shields.io/badge/Reachy%20Mini-app-purple)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-<a href="assets/count_reachula.mp4"><img src="assets/count_reachula_loop.webp" alt="Count Reachula on a Reachy Mini guesses a costume through his camera" width="320"></a>
+<a href="https://huggingface.co/spaces/RockyRocket/graf_reachula/resolve/main/assets/count_reachula.mp4"><img src="assets/count_reachula_loop.webp" alt="Count Reachula on a Reachy Mini guesses a costume through his camera" width="320"></a>
 
-🎬 **[Watch the 38-second video](assets/count_reachula.mp4)** (with sound): he guesses a costume through his camera, welcomes his guests, reads a spooky future and scares on request.
+🎬 **[Watch the 38-second video](https://huggingface.co/spaces/RockyRocket/graf_reachula/resolve/main/assets/count_reachula.mp4)** (with sound): he guesses a costume through his camera, welcomes his guests, reads a spooky future and scares on request.
 
 **Install:** Reachy Mini Control → *Applications* → *Discover Apps* → **Count Reachula**
 
@@ -203,7 +203,7 @@ Zukunft voraus und erzählt Gruselgeschichten in drei Sätzen.
 
 Gruselig, aber kindgerecht: ab und zu ein kleiner Schreck, nie Blut, nichts Gemeines, meist nur Gekicher.
 
-🎬 **[Video ansehen (38 Sekunden, mit Ton)](assets/count_reachula.mp4)**: Er errät ein Kostüm über seine Kamera, begrüßt seine Gäste, sagt die Zukunft voraus und erschreckt auf Zuruf.
+🎬 **[Video ansehen (38 Sekunden, mit Ton)](https://huggingface.co/spaces/RockyRocket/graf_reachula/resolve/main/assets/count_reachula.mp4)**: Er errät ein Kostüm über seine Kamera, begrüßt seine Gäste, sagt die Zukunft voraus und erschreckt auf Zuruf.
 
 ### Einrichtung in drei Stufen (Stufe 1 reicht zum Spuken, alles danach ist optional)
 
