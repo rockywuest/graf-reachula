@@ -133,7 +133,7 @@ class Stage:
     def gesturing(self) -> bool:
         return self.gesture_thread is not None and self.gesture_thread.is_alive()
 
-    def finish_gesture(self, timeout: float = 6.0):
+    def finish_gesture(self, timeout: float = 10.0):   # "scared" takes 7.8 s
         """Wait for a running gesture: two moves at once would fight over the motors."""
         thread = self.gesture_thread
         if thread is not None and thread is not threading.current_thread():

@@ -294,10 +294,34 @@ def test_nothing_follows_his_own_question(robot, stage):
     assert not any(c[0] == "move" for c in stage.calls), "no extra gesture after a question"
 
 
-def test_a_question_keeps_the_gesture_the_model_chose(robot, stage):
+def test_a_question_gets_no_gesture_so_a_short_yes_is_not_taken_for_motor_noise(robot, stage):
     t = speaking_talk(robot, stage, "Do you dare? [move:scared]")
     t.handle("Reachy, hello")
-    assert stage.calls == [("move", "scared"), ("voice", "Do you dare?")]
+    assert stage.calls == [("voice", "Do you dare?")]
+
+
+@pytest.mark.parametrize("reply", ['Who knocks? "Trick or treat?"', "Do you dare?!", "Shall I? [sound:ghost]"])
+def test_questions_in_quotes_or_with_exclamation_count_as_questions(robot, stage, reply):
+    t = speaking_talk(robot, stage, reply)
+    t.handle("Reachy, hello")
+    assert stage.calls[-1][0] == "voice"
+
+
+def test_short_transcripts_during_a_gesture_are_motor_noise(robot, stage):
+    """Quiet-room test on the robot: during "scared" the mic heard "Reachula" with nobody there."""
+    t = speaking_talk(robot, stage, "Boo!")
+    stage.moving = True
+    t.handle("Reachula")
+    t.handle("My, my")
+    t.brain.reply.assert_not_called()
+    t.handle("Reachy, tell me a story please")
+    t.brain.reply.assert_called_once()
+
+
+def test_scared_is_no_filler_move():
+    from graf_reachula.talk import FILLER_MOVES
+
+    assert "scared" not in FILLER_MOVES
 
 
 def test_at_most_one_gesture_per_answer(robot, stage):

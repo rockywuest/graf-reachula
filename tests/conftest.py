@@ -107,6 +107,9 @@ class FakeStage:
     def gesture(self, name):
         self.calls.append(("move", name))
 
+    def gesturing(self):
+        return getattr(self, "moving", False)
+
     def play_audio(self, audio, rate=16000):
         self.calls.append(("audio", len(audio), rate))
 

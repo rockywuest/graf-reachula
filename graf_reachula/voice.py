@@ -25,6 +25,7 @@ PITCH = "-12Hz"
 ELEVENLABS_RATE = 16000
 CACHE_SIZE = 32     # the intro and scare lines repeat all evening; don't pay for them twice
 TIMEOUT = 8.0       # seconds; a party can't wait longer for one sentence
+EDGE_DOWN = "⚠️ The free Edge voice is not answering, the Count can't speak right now"
 COOLDOWN = 300      # after an ElevenLabs failure, use the free voice for this long
 
 
@@ -116,6 +117,7 @@ class Voice:
         self.eleven_paused_until = 0.0
         self.eleven_error = ""
         self.status = ""                          # shown on the settings page
+        self.edge_failed = False
 
     @property
     def texts(self) -> dict:
@@ -169,17 +171,21 @@ class Voice:
         elif tts["provider"] == "edge":
             missing_key = self.settings.tts_provider == "elevenlabs"
             self.status = "Free Edge voice" + (" (ElevenLabs chosen, but no key yet)" if missing_key else "")
+        before = self.status
+        if self.edge_failed:
+            self.status = EDGE_DOWN   # stays until the voice works again, not just until the next try
         key = ("edge", text, tts["edge_voice"])
         with self.lock:
             cached = self.cache.get(key)
         if cached is not None:
             return cached
-        before = self.status
         result = synthesize(text, tts["edge_voice"])
         if result is None:
             # Microsoft's free service is unofficial and sometimes down: the Count is mute then
-            self.status = "⚠️ The free Edge voice is not answering, the Count can't speak right now"
+            self.edge_failed = True
+            self.status = EDGE_DOWN
         else:
+            self.edge_failed = False
             self.status = before
             with self.lock:
                 self.cache[key] = result

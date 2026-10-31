@@ -81,6 +81,8 @@ def test_a_failing_edge_voice_shows_a_warning_until_it_works_again(fake_edge, st
     fake_edge["error"] = RuntimeError("Microsoft is down")
     speaker("Good evening")
     assert speaker.status.startswith("⚠️")
+    speaker("Good evening")                  # a retry that still fails, or a line from the cache
+    assert speaker.status.startswith("⚠️"), "the warning stays until the voice works again"
     fake_edge["error"] = None
     speaker("Good evening again")
     assert speaker.status == "Free Edge voice"

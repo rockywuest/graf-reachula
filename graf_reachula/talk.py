@@ -27,7 +27,11 @@ ADDRESSED = re.compile(
 ECHO_WINDOW = 5    # seconds after he finished (speech-to-text needs a moment, too) in which a transcript may be his own last line
 ECHO_OVERLAP = 0.9  # nearly all words his: a guest who answers ("yes, tell me a ghost story") repeats only some
 
-FILLER_MOVES = ("laughing", "surprised", "scared", "startled", "shocked")   # when the model forgets a move
+# When the model forgets a move. Short ones only: during "scared" (7.8 s) the open mic in the moving head
+# heard "Reachula" in a quiet room
+FILLER_MOVES = ("laughing", "surprised", "startled", "shocked")
+QUESTION_END = re.compile(r"\?[\W_]*$")   # also "...Trick or treat?\"" and "?!"
+MOTOR_NOISE_WORDS = 2                     # while a gesture runs, transcripts this short are motor noise
 SOUNDS = ("heartbeat", "ghost", "door", "wind", "bells", "laugh")
 
 TAG = re.compile(r"\[(sound|move|scare)(?::([^\]]*))?\]", re.IGNORECASE)
@@ -122,6 +126,9 @@ class Talk:
         return len(words & spoken) >= 4 and len(words & spoken) / len(words) > ECHO_OVERLAP
 
     def handle(self, text: str):
+        if self.stage.gesturing() and len(text.split()) <= MOTOR_NOISE_WORDS:
+            log.info("Ignored a short transcript during a gesture (motor noise)")
+            return
         if self.is_echo(text):
             log.info("Ignored my own echo")
             return
@@ -158,15 +165,16 @@ class Talk:
                 return
             self.chat_error = ""
             spoken, effects = split_effects(reply)
-            question = spoken.rstrip().endswith("?")
+            question = bool(QUESTION_END.search(spoken))
             effects = self.vary(effects, question)
             log.info("Count answers (%d words, %.1f s) %s", len(spoken.split()), time.monotonic() - started, effects)
             log.debug("Count: %r", spoken)
             self.last_spoken = spoken
             # The gesture runs silently while he speaks. After a question nothing may follow
-            # his last word, or the guest's quick answer is lost: sounds and scares then come first
+            # his last word, or the guest's quick answer is lost: sounds and scares then come first,
+            # and no gesture at all, as a short "Yes!" during one would pass for motor noise
             for kind, arg in effects:
-                if kind == "move":
+                if kind == "move" and not question:
                     self.stage.gesture(arg)
             others = [(kind, arg) for kind, arg in effects if kind != "move"]
             if question:
