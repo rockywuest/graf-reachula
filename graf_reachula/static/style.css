@@ -25,6 +25,7 @@ h1 { margin: 6px 0 0; font-size: 30px; letter-spacing: 1px; }
 .sub { margin: 4px 0; color: var(--accent); }
 .status { color: var(--muted); min-height: 1.4em; }
 .status-line { color: var(--accent); font-size: 14px; min-height: 1.2em; margin: 6px 0; }
+.status-line.warn { color: #ff8a8a; font-weight: 600; }
 .hint a { color: var(--accent); }
 
 main { max-width: 640px; margin: 0 auto; padding: 0 16px 24px; }

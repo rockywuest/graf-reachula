@@ -242,3 +242,12 @@ def test_the_mic_is_left_alone_while_the_count_speaks(stage, monkeypatch):
     threading.Timer(0.3, stop.set).start()
     assert listener.listen(stop) is None
     assert not robot.media.recording
+
+
+def test_re_arming_switches_the_mic_off_and_on(stage):
+    robot = SimpleNamespace(media=MagicMock())
+    listener = Ears.__new__(Ears)
+    listener.robot, listener.stage = robot, stage
+    stage.ears = listener
+    listener._rearm()
+    assert [c[0] for c in robot.media.method_calls] == ["stop_recording", "start_recording"]

@@ -174,8 +174,13 @@ class Voice:
             cached = self.cache.get(key)
         if cached is not None:
             return cached
+        before = self.status
         result = synthesize(text, tts["edge_voice"])
-        if result is not None:
+        if result is None:
+            # Microsoft's free service is unofficial and sometimes down: the Count is mute then
+            self.status = "⚠️ The free Edge voice is not answering, the Count can't speak right now"
+        else:
+            self.status = before
             with self.lock:
                 self.cache[key] = result
                 while len(self.cache) > CACHE_SIZE:

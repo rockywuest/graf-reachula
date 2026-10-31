@@ -122,8 +122,9 @@ class Ears:
         with self.stage.lock:
             if getattr(self.stage, "ears", None) is not self:
                 return   # a newer listener owns the mic
-            log.warning("Microphone went silent, switching it on again")
+            log.warning("Microphone went silent, switching it off and on again")
             try:
+                self.robot.media.stop_recording()
                 self.robot.media.start_recording()
             except Exception as e:
                 log.warning("Could not re-arm the microphone: %s", e)
@@ -222,12 +223,12 @@ class Ears:
         """Turn the microphone off, unless a newer listener has taken over already."""
         if getattr(self.client, "close", None):
             self.client.close()
-        if getattr(self.stage, "ears", None) is not self:
-            return
-        self.stage.recording = False
-        self.stage.ears = None
-        try:
-            with self.stage.lock:
+        with self.stage.lock:
+            if getattr(self.stage, "ears", None) is not self:
+                return
+            self.stage.recording = False
+            self.stage.ears = None
+            try:
                 self.robot.media.stop_recording()
-        except Exception as e:
-            log.warning("Could not stop the microphone: %s", e)
+            except Exception as e:
+                log.warning("Could not stop the microphone: %s", e)

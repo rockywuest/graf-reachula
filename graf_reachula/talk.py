@@ -75,13 +75,17 @@ class Talk:
     def last_error(self) -> str:
         return " · ".join(e for e in (self.stt_error, self.chat_error) if e)
 
-    def vary(self, effects):
-        """Every answer gets a gesture, and no sound or move twice in a row.
+    def vary(self, effects, question: bool = False):
+        """At most one gesture per answer, and no sound or move twice in a row.
 
         At the party the model chose "ghost" for nearly every reply and once "dying" three times running.
+        An answer without a move gets one, unless it ends with a question: then nothing extra.
         """
         known = self.stage.moves
-        if not any(kind == "scare" or (kind == "move" and arg in known) for kind, arg in effects):
+        first_move = next((i for i, (kind, _) in enumerate(effects) if kind == "move"), None)
+        effects = [(k, a) for i, (k, a) in enumerate(effects) if k != "move" or i == first_move]
+        has_gesture = any(kind == "scare" or (kind == "move" and arg in known) for kind, arg in effects)
+        if not has_gesture and not question:
             # A Count who only talks looks stiff (a move this robot lacks would show nothing)
             effects = [(k, a) for k, a in effects if k != "move"] + [("move", "")]
         varied = []
@@ -154,12 +158,22 @@ class Talk:
                 return
             self.chat_error = ""
             spoken, effects = split_effects(reply)
-            effects = self.vary(effects)
+            question = spoken.rstrip().endswith("?")
+            effects = self.vary(effects, question)
             log.info("Count answers (%d words, %.1f s) %s", len(spoken.split()), time.monotonic() - started, effects)
             log.debug("Count: %r", spoken)
             self.last_spoken = spoken
+            # The gesture runs silently while he speaks. After a question nothing may follow
+            # his last word, or the guest's quick answer is lost: sounds and scares then come first
+            for kind, arg in effects:
+                if kind == "move":
+                    self.stage.gesture(arg)
+            others = [(kind, arg) for kind, arg in effects if kind != "move"]
+            if question:
+                self.perform(others)
             self.voice(spoken)
-            self.perform(effects)
+            if not question:
+                self.perform(others)
             self.last_reply = time.time()
         finally:
             self.haunt.conversation_active.clear()

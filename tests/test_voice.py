@@ -74,3 +74,13 @@ def test_voice_stays_silent_when_tts_fails(fake_edge, stage):
     fake_edge["error"] = RuntimeError("offline")
     Voice(stage, Settings())("Hello")
     assert stage.calls == []
+
+
+def test_a_failing_edge_voice_shows_a_warning_until_it_works_again(fake_edge, stage):
+    speaker = Voice(stage, Settings())
+    fake_edge["error"] = RuntimeError("Microsoft is down")
+    speaker("Good evening")
+    assert speaker.status.startswith("⚠️")
+    fake_edge["error"] = None
+    speaker("Good evening again")
+    assert speaker.status == "Free Edge voice"

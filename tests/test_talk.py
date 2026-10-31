@@ -269,3 +269,38 @@ def test_with_a_single_move_it_is_not_repeated(robot, stage):
     t.handle("Reachy, hello")
     t.handle("Reachy, again")
     assert [c for c in stage.calls if c[0] == "move"] == [("move", "laughing")]
+
+
+def speaking_talk(robot, stage, reply):
+    stage.moves = {m: object() for m in ("laughing", "surprised", "scared", "dying", "angry")}
+    t = make_talk(robot, stage)
+    t.voice.side_effect = lambda text: stage.calls.append(("voice", text))
+    t.brain.reply.return_value = reply
+    return t
+
+
+def test_the_gesture_starts_with_the_speech_and_the_sound_follows(robot, stage):
+    t = speaking_talk(robot, stage, "Welcome to my castle. [sound:bells] [move:laughing]")
+    t.handle("Reachy, hello")
+    assert stage.calls == [("move", "laughing"), ("voice", "Welcome to my castle."), ("sound", "bells")]
+
+
+def test_nothing_follows_his_own_question(robot, stage):
+    """After "Shall I tell you a ghost story?" the guest's quick "Yes!" must not fall into a sound or move."""
+    t = speaking_talk(robot, stage, "[sound:ghost] Shall I tell you a ghost story?")
+    t.handle("Reachy, hello")
+    assert stage.calls[-1] == ("voice", "Shall I tell you a ghost story?")
+    assert ("sound", "ghost") in stage.calls
+    assert not any(c[0] == "move" for c in stage.calls), "no extra gesture after a question"
+
+
+def test_a_question_keeps_the_gesture_the_model_chose(robot, stage):
+    t = speaking_talk(robot, stage, "Do you dare? [move:scared]")
+    t.handle("Reachy, hello")
+    assert stage.calls == [("move", "scared"), ("voice", "Do you dare?")]
+
+
+def test_at_most_one_gesture_per_answer(robot, stage):
+    t = speaking_talk(robot, stage, "Grr! [move:angry] [move:dying]")
+    t.handle("Reachy, hello")
+    assert [c for c in stage.calls if c[0] == "move"] == [("move", "angry")]

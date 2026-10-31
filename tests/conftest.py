@@ -104,6 +104,9 @@ class FakeStage:
     def play_move(self, name):
         self.calls.append(("move", name))
 
+    def gesture(self, name):
+        self.calls.append(("move", name))
+
     def play_audio(self, audio, rate=16000):
         self.calls.append(("audio", len(audio), rate))
 

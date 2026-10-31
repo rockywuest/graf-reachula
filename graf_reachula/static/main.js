@@ -60,7 +60,9 @@ function showStatus(settings) {
     else if (settings.talk_error) text = "Talking failed: " + settings.talk_error;
     else if (settings.talk && !settings.can_talk) text = "Add a chat key and a speech-to-text key to make the Count talk.";
     $("status").textContent = text;
-    $("voice-status").textContent = settings.voice_status ? "Current voice: " + settings.voice_status : "";
+    const voice = settings.voice_status || "";
+    $("voice-status").textContent = voice ? "Current voice: " + voice : "";
+    $("voice-status").classList.toggle("warn", voice.startsWith("⚠️"));
 }
 
 async function save(changes) {
