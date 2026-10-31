@@ -292,3 +292,11 @@ def test_a_reply_cut_off_by_the_token_limit_ends_with_a_full_sentence():
 def test_a_short_complete_sentence_survives_the_token_limit():
     brain = anthropic_brain([anthropic_response("Ooh, a splendid witch! And your broom looks like it", "max_tokens")])
     assert brain.reply("what am I?", None) == "Ooh, a splendid witch!"
+
+
+def test_the_prompt_keeps_answers_short_and_the_camera_out_of_them():
+    from graf_reachula.texts import system_prompt
+
+    prompt = system_prompt("en")
+    assert "25 words" in prompt
+    assert "never\nmention cameras" in prompt or "never mention cameras" in prompt.replace("\n", " ")

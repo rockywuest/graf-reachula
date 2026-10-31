@@ -308,7 +308,7 @@ def test_questions_in_quotes_or_with_exclamation_count_as_questions(robot, stage
 
 
 def test_short_transcripts_during_a_gesture_are_motor_noise(robot, stage):
-    """Quiet-room test on the robot: during "scared" the mic heard "Reachula" with nobody there."""
+    """A safeguard: during long moves the open mic in the moving head picked up short words (people were talking)."""
     t = speaking_talk(robot, stage, "Boo!")
     stage.moving = True
     t.handle("Reachula")
