@@ -22,7 +22,9 @@ tags:
 ![Reachy Mini app](https://img.shields.io/badge/Reachy%20Mini-app-purple)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-![Count Reachula — Spooky Reachy](assets/og.png)
+<a href="assets/count_reachula.mp4"><img src="assets/count_reachula_loop.webp" alt="Count Reachula on a Reachy Mini: he wakes up, guesses a costume and reads a spooky future" width="320"></a>
+
+🎬 **[Watch the 45-second video](assets/count_reachula.mp4)** (with sound): he wakes up, greets his guests, guesses a costume through his camera and reads a spooky future.
 
 **Install:** Reachy Mini Control → *Applications* → *Discover Apps* → **Count Reachula**
 
@@ -200,6 +202,8 @@ heulen — und mit einem KI-Schlüssel spricht er: Er errät Kostüme über sein
 Zukunft voraus und erzählt Gruselgeschichten in drei Sätzen.
 
 Gruselig, aber kindgerecht: ab und zu ein kleiner Schreck, nie Blut, nichts Gemeines, meist nur Gekicher.
+
+🎬 **[Video ansehen (45 Sekunden, mit Ton)](assets/count_reachula.mp4)**: Er wacht auf, begrüßt seine Gäste, errät ein Kostüm über seine Kamera und sagt die Zukunft voraus.
 
 ### Einrichtung in drei Stufen (Stufe 1 reicht zum Spuken, alles danach ist optional)
 

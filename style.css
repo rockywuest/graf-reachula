@@ -423,3 +423,7 @@ body { background: #14101c; color: #f1eaff; }
 .feature p { margin: 0; color: #d8cdea; font-size: 14px; }
 .how h2, .de h2 { margin-top: 22px; }
 .footer a { color: #ff7a1a; }
+
+.video { text-align: center; margin-bottom: 24px; }
+.video video { width: 100%; max-width: 320px; border-radius: 16px; display: block; margin: 0 auto 8px; }
+.video a { color: inherit; font-weight: 600; }
