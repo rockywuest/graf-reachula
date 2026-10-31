@@ -68,3 +68,16 @@ def test_the_ears_open_right_after_his_last_word():
     assert stage.echoing()
     time.sleep(0.4)
     assert not stage.echoing(), "a 'Yes!' 0.4 s after his question must reach the ears"
+
+
+def test_a_new_gesture_is_skipped_while_one_runs_so_the_answer_does_not_wait():
+    robot = SlowRobot()
+    stage = bare_stage(robot)
+    stage.moves["surprised"] = "MOVE2"
+    stage.gesture("laughing")
+    started = time.monotonic()
+    stage.gesture("surprised")
+    assert time.monotonic() - started < 0.2
+    robot.release.set()
+    stage.finish_gesture()
+    assert robot.moves == [("MOVE", False)]

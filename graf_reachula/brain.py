@@ -13,7 +13,7 @@ MAX_HISTORY = 12   # messages kept as context (6 exchanges)
 # Only a guard against run-away replies: models that think (Claude, Gemini, ...) spend
 # part of it on thinking, and a tight cap would leave no text. tidy() cuts the length.
 MAX_REPLY_TOKENS = 1024
-MAX_REPLY_CHARS = 320   # two spoken sentences; longer replies outlast the voice service's timeout
+MAX_REPLY_CHARS = 260   # a three-sentence ghost story; on the robot replies ran to 40 words and dragged on
 
 # Reasoning models may put their thinking into the reply text
 THINKING = re.compile(r"<think>.*?(</think>|$)", re.IGNORECASE | re.DOTALL)

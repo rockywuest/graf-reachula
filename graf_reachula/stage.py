@@ -116,7 +116,8 @@ class Stage:
         if move is None:
             log.info("Unknown move: %s", name)
             return
-        self.finish_gesture()
+        if self.gesturing():
+            return   # the last one is still running: skip this one rather than make the answer wait
 
         def run():
             try:

@@ -27,8 +27,9 @@ ADDRESSED = re.compile(
 ECHO_WINDOW = 5    # seconds after he finished (speech-to-text needs a moment, too) in which a transcript may be his own last line
 ECHO_OVERLAP = 0.9  # nearly all words his: a guest who answers ("yes, tell me a ghost story") repeats only some
 
-# When the model forgets a move. Short ones only: during "scared" (7.8 s) the open mic in the moving head
-# heard "Reachula" in a quiet room
+# When the model forgets a move. Short ones only: "scared" takes 7.8 s, and the mic in the moving head
+# stays open meanwhile (a test with people talking in the room picked up words during long moves;
+# a repeat in a quiet room picked up nothing)
 FILLER_MOVES = ("laughing", "surprised", "startled", "shocked")
 QUESTION_END = re.compile(r"\?[\W_]*$")   # also "...Trick or treat?\"" and "?!"
 MOTOR_NOISE_WORDS = 2                     # while a gesture runs, transcripts this short are motor noise
